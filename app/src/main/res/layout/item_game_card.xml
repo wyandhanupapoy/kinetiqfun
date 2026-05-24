@@ -37,12 +37,27 @@
         app:layout_constraintVertical_bias="0.42"
         app:layout_constraintWidth_percent="0.84" />
 
-    <!-- Overlay untuk Efek Blur/Gelap -->
+    <!-- Teks Placeholder Tangkap Layar -->
+    <TextView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="Tangkap Layar Game"
+        android:textColor="@android:color/white"
+        android:gravity="center"
+        android:fontFamily="@font/game_font"
+        android:textSize="14sp"
+        app:layout_constraintTop_toTopOf="@+id/imgScreenshot"
+        app:layout_constraintBottom_toBottomOf="@+id/imgScreenshot"
+        app:layout_constraintStart_toStartOf="@+id/imgScreenshot"
+        app:layout_constraintEnd_toEndOf="@+id/imgScreenshot" />
+
+    <!-- Overlay untuk Efek Gelap saat tidak fokus -->
     <View
         android:id="@+id/blurOverlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#DD000000"
+        android:background="#99000000"
+        android:alpha="0"
         android:contentDescription="@string/game_blur_overlay"
         app:layout_constraintTop_toTopOf="@id/imgCardbox"
         app:layout_constraintBottom_toBottomOf="@id/imgCardbox"

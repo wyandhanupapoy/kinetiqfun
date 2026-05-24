@@ -74,11 +74,6 @@ abstract class BasePoseActivity : AppCompatActivity() {
         }
 
         cameraExecutor = Executors.newFixedThreadPool(2)
-
-        binding.cameraSwitchButton.setOnClickListener {
-            isFrontCamera = !isFrontCamera
-            startCamera()
-        }
     }
 
     private fun startCamera() {

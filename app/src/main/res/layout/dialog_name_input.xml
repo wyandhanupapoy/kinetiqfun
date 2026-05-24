@@ -1,66 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/loading_bar_background"
-    android:orientation="vertical"
-    android:padding="24dp">
+    app:cardBackgroundColor="@color/colorCardDark"
+    app:cardCornerRadius="24dp"
+    app:strokeColor="@color/colorPrimary"
+    app:strokeWidth="2dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:fontFamily="@font/game_font"
-        android:text="Kesatria Sisi Kiri (Cyan)"
-        android:textColor="#00FFFF"
-        android:textSize="18sp"
-        android:textStyle="bold" />
-
-    <EditText
-        android:id="@+id/editP1"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:backgroundTint="#00FFFF"
-        android:fontFamily="@font/game_font"
-        android:hint="Nama Player 1"
-        android:inputType="textPersonName"
-        android:maxLength="12"
-        android:textColor="@android:color/white"
-        android:textColorHint="#8800FFFF" />
+        android:orientation="vertical"
+        android:padding="32dp">
 
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="24dp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/game_font"
+            android:text="PLAYER SETUP"
+            android:textColor="@color/colorPrimary"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:shadowColor="@color/colorPrimary"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="8"
+            android:layout_marginBottom="24dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:fontFamily="@font/game_font"
-        android:text="Kesatria Sisi Kanan (Magenta)"
-        android:textColor="#FF00FF"
-        android:textSize="18sp"
-        android:textStyle="bold" />
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:boxStrokeColor="@color/colorPrimary"
+            app:hintTextColor="@color/colorPrimary"
+            android:hint="Kesatria Kiri (Cyan)"
+            android:layout_marginBottom="16dp">
 
-    <EditText
-        android:id="@+id/editP2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:backgroundTint="#FF00FF"
-        android:fontFamily="@font/game_font"
-        android:hint="Nama Player 2"
-        android:inputType="textPersonName"
-        android:maxLength="12"
-        android:textColor="@android:color/white"
-        android:textColorHint="#88FF00FF" />
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editP1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/game_font"
+                android:textColor="@color/textColorPrimary"
+                android:inputType="textPersonName"
+                android:maxLength="12" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-    <Button
-        android:id="@+id/btnStartGame"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:backgroundTint="#FFEB3B"
-        android:fontFamily="@font/game_font"
-        android:text="MULAI PERTANDINGAN"
-        android:textColor="@android:color/black"
-        android:textStyle="bold" />
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:boxStrokeColor="@color/colorAccent"
+            app:hintTextColor="@color/colorAccent"
+            android:hint="Kesatria Kanan (Magenta)"
+            android:layout_marginBottom="32dp">
 
-</LinearLayout>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editP2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/game_font"
+                android:textColor="@color/textColorPrimary"
+                android:inputType="textPersonName"
+                android:maxLength="12" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStartGame"
+            style="@style/Widget.KinetiQFun.Button"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="MULAI PERTANDINGAN"
+            android:textSize="20sp" />
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

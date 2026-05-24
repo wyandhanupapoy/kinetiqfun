@@ -36,7 +36,7 @@ class GameThreeActivity : BasePoseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        showNameInputDialog()
+        isGameStarted = true
         
         // Show tooltips for first-time players
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
@@ -47,24 +47,7 @@ class GameThreeActivity : BasePoseActivity() {
         })
     }
 
-    private fun showNameInputDialog() {
-        val view = LayoutInflater.from(this).inflate(R.layout.dialog_name_input, null)
-        val dialog = AlertDialog.Builder(this)
-            .setView(view)
-            .setCancelable(false)
-            .create()
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
-        view.findViewById<Button>(R.id.btnStartGame).setOnClickListener {
-            val p1 = view.findViewById<EditText>(R.id.editP1).text.toString()
-            val p2 = view.findViewById<EditText>(R.id.editP2).text.toString()
-            nameP1 = if (p1.isNotEmpty()) p1 else "Player 1"
-            nameP2 = if (p2.isNotEmpty()) p2 else "Player 2"
-            isGameStarted = true
-            dialog.dismiss()
-        }
-        dialog.show()
-    }
 
     override fun onPoseDetected(playerId: Int, pose: Pose, pXOffset: Float, imgWidth: Int, imgHeight: Int) {
         if (!isGameStarted || winner != null) return

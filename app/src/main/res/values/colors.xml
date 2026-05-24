@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors: Neon/Cyber Theme -->
+    <color name="colorPrimary">#00F0FF</color>         <!-- Neon Cyan -->
+    <color name="colorPrimaryDark">#00B8C4</color>
+    <color name="colorAccent">#FF0055</color>          <!-- Neon Magenta -->
+
+    <!-- Backgrounds -->
+    <color name="colorBackgroundDark">#0F0F1A</color>  <!-- Deep Midnight Blue/Black -->
+    <color name="colorCardDark">#1A1A2E</color>        <!-- Dark Card Background -->
+    
+    <!-- Transparent/Overlay Colors -->
+    <color name="overlayDark">#B3000000</color>        <!-- 70% Black -->
+    <color name="glassmorphismLight">#1AFFFFFF</color> <!-- 10% White for Glass -->
+    <color name="glassmorphismDark">#33000000</color>  <!-- 20% Black for Glass -->
+
+    <!-- Text Colors -->
+    <color name="textColorPrimary">#FFFFFF</color>
+    <color name="textColorSecondary">#B3FFFFFF</color> <!-- 70% White -->
+    
+    <!-- Status/Feedback Colors -->
+    <color name="colorSuccess">#00FF88</color>
+    <color name="colorError">#FF3333</color>
+    <color name="colorWarning">#FFCC00</color>
+</resources>

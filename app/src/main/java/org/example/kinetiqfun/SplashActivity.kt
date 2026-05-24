@@ -13,6 +13,16 @@ class SplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Prevent app restart when opened from launcher while already running in background
+        if (!isTaskRoot
+            && intent.hasCategory(Intent.CATEGORY_LAUNCHER)
+            && intent.action != null
+            && intent.action == Intent.ACTION_MAIN
+        ) {
+            finish()
+            return
+        }
+        
         // 1. Agar konten bisa tampil di area "poni" (Notch)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -44,8 +54,7 @@ class SplashActivity : AppCompatActivity() {
 
     private fun goToLoadingActivity() {
         if (!isFinishing) {
-            startActivity(Intent(this, LoadingActivity::class.java))
-            finish()
+            RainbowTransition.navigate(this, Intent(this, LoadingActivity::class.java), finishCurrent = true)
         }
     }
 

@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.App.Starting" parent="Theme.AppCompat.NoActionBar">
+    <!-- Main Application Theme -->
+    <style name="Theme.KinetiQFun" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowBackground">@color/colorBackgroundDark</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
+        <item name="android:fontFamily">@font/game_font</item>
+    </style>
+
+    <style name="Theme.App.Starting" parent="Theme.KinetiQFun">
         <item name="android:windowBackground">@android:color/black</item>
 
         <!-- Menangani Android 12+ Splash Screen -->

@@ -5,4 +5,23 @@
         <item name="android:windowEnterAnimation">@anim/tooltip_fade_in</item>
         <item name="android:windowExitAnimation">@anim/tooltip_fade_out</item>
     </style>
+
+    <!-- Neon Button Style -->
+    <style name="Widget.KinetiQFun.Button" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/colorPrimary</item>
+        <item name="android:textColor">@color/colorBackgroundDark</item>
+        <item name="cornerRadius">24dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:fontFamily">@font/game_font</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+    
+    <style name="Widget.KinetiQFun.Button.Outline" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">@color/colorPrimary</item>
+        <item name="strokeColor">@color/colorPrimary</item>
+        <item name="strokeWidth">2dp</item>
+        <item name="cornerRadius">24dp</item>
+        <item name="android:fontFamily">@font/game_font</item>
+    </style>
 </resources>

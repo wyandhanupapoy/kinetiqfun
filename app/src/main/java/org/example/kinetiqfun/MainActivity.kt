@@ -56,11 +56,6 @@ class MainActivity : AppCompatActivity() {
 
         // Gunakan thread pool yang cukup untuk memproses dua deteksi secara paralel
         cameraExecutor = Executors.newFixedThreadPool(2)
-
-        binding.cameraSwitchButton.setOnClickListener {
-            isFrontCamera = !isFrontCamera
-            startCamera()
-        }
     }
 
     private fun startCamera() {

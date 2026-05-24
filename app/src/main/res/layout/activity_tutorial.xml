@@ -4,8 +4,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/loading_bg"
+    android:background="@color/colorBackgroundDark"
     tools:context=".TutorialActivity">
+
+    <!-- Background Pattern -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/loading_bg"
+        android:alpha="0.2" />
 
     <!-- ViewPager for tutorial slides -->
     <androidx.viewpager2.widget.ViewPager2
@@ -25,13 +32,14 @@
         android:id="@+id/tabLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
         app:layout_constraintBottom_toTopOf="@+id/buttonContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:tabIndicatorColor="@android:color/white"
+        app:tabIndicatorColor="@color/colorPrimary"
         app:tabIndicatorHeight="4dp"
-        app:tabSelectedTextColor="@android:color/white"
-        app:tabTextColor="#80FFFFFF"
+        app:tabSelectedTextColor="@color/colorPrimary"
+        app:tabTextColor="@color/textColorSecondary"
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="16dp" />
@@ -51,14 +59,11 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSkip"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
+            style="@style/Widget.KinetiQFun.Button.Outline"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/skip"
-            android:textColor="@android:color/white"
-            android:strokeColor="@android:color/white"
-            android:strokeWidth="1" />
+            android:text="@string/skip" />
 
         <View
             android:layout_width="24dp"
@@ -66,13 +71,11 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnNext"
-            style="@style/Widget.MaterialComponents.Button"
+            style="@style/Widget.KinetiQFun.Button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/next"
-            android:backgroundTint="@android:color/white"
-            android:textColor="@android:color/black" />
+            android:text="@string/next" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

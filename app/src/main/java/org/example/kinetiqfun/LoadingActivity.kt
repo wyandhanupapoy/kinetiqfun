@@ -27,7 +27,7 @@ class LoadingActivity : AppCompatActivity() {
     private lateinit var txtPercentage: TextView
     private lateinit var txtTips: TextView
     private lateinit var imgLogo: ImageView
-    private lateinit var btnStart: ImageView
+    private lateinit var btnStart: android.widget.Button
     
     private var progressStatus = 0
     private val handler = Handler(Looper.getMainLooper())
@@ -52,6 +52,9 @@ class LoadingActivity : AppCompatActivity() {
         setContentView(R.layout.activity_loading)
         hideSystemUI()
 
+        // Enable and start background music when entering Loading screen
+        (application as KinetiqFunApp).enableMusic()
+
         // Inisialisasi View
         progressBar = findViewById(R.id.progressBar)
         txtLoading = findViewById(R.id.txtLoading)
@@ -68,9 +71,7 @@ class LoadingActivity : AppCompatActivity() {
         }
 
         btnStart.setOnClickListener {
-            startActivity(Intent(this, MenuActivity::class.java))
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-            finish()
+            RainbowTransition.navigate(this, Intent(this, MenuActivity::class.java), finishCurrent = true)
         }
 
         setupAnimations()

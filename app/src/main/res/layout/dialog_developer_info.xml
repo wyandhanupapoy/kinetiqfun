@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="650dp"
+    android:layout_height="wrap_content"
+    android:layout_margin="16dp"
+    android:layout_gravity="center"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="10dp"
+    android:backgroundTint="#1A1A2E">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="24dp"
+        android:baselineAligned="false">
+
+        <!-- Left Side: Logos & School -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingEnd="16dp">
+
+            <ImageView
+                android:layout_width="160dp"
+                android:layout_height="wrap_content"
+                android:src="@drawable/game_logo"
+                android:adjustViewBounds="true"
+                android:layout_marginBottom="24dp" />
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/polban"
+                android:adjustViewBounds="true"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="KELAS: D3 2C JTK"
+                android:textColor="#FFC107"
+                android:textSize="18sp"
+                android:fontFamily="@font/game_font"
+                android:layout_marginBottom="4dp"/>
+                
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="POLITEKNIK NEGERI BANDUNG"
+                android:textColor="#FFC107"
+                android:textSize="14sp"
+                android:textAlignment="center"
+                android:fontFamily="@font/game_font"/>
+        </LinearLayout>
+
+        <!-- Vertical Divider -->
+        <View
+            android:layout_width="2dp"
+            android:layout_height="match_parent"
+            android:background="#03A9F4"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Right Side: Names & Button -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingStart="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DEVELOPED BY:"
+                android:textColor="#03A9F4"
+                android:textSize="22sp"
+                android:fontFamily="@font/game_font"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1. WYANDHANU"
+                android:textColor="@android:color/white"
+                android:textSize="20sp"
+                android:fontFamily="@font/game_font"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2. HELGA"
+                android:textColor="@android:color/white"
+                android:textSize="20sp"
+                android:fontFamily="@font/game_font"
+                android:layout_marginBottom="8dp"/>
+                
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3. NIKE"
+                android:textColor="@android:color/white"
+                android:textSize="20sp"
+                android:fontFamily="@font/game_font"
+                android:layout_marginBottom="8dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="4. DZAKIR"
+                android:textColor="@android:color/white"
+                android:textSize="20sp"
+                android:fontFamily="@font/game_font"
+                android:layout_marginBottom="24dp"/>
+
+            <Button
+                android:id="@+id/btnCloseDialog"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#03A9F4"
+                android:text="AWESOME!"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/game_font"
+                android:paddingStart="32dp"
+                android:paddingEnd="32dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

@@ -13,13 +13,40 @@ import kotlin.math.max
 
 class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
+    companion object Config {
+        // SKALA (1.0f = ukuran normal bawaan)
+        var headScale = 1.0f
+        var bodyScale = 1.0f
+        var shoulderScale = 1.0f
+        var handScale = 1.0f
+
+        // OFFSET POSISI X (Kiri/Kanan) dan Y (Atas/Bawah)
+        var headOffsetX = 0f
+        var headOffsetY = 0f
+        
+        var bodyOffsetX = 0f
+        var bodyOffsetY = 0f
+        
+        var leftShoulderOffsetX = 0f
+        var leftShoulderOffsetY = 0f
+        
+        var rightShoulderOffsetX = 0f
+        var rightShoulderOffsetY = 0f
+        
+        var leftHandOffsetX = 0f
+        var leftHandOffsetY = 0f
+        
+        var rightHandOffsetX = 0f
+        var rightHandOffsetY = 0f
+    }
+
     private val playersPose = mutableMapOf<Int, Pair<Pose, Float>>()
     private val gameTypeface: Typeface? by lazy {
         ResourcesCompat.getFont(context, R.font.game_font)
     }
 
-    private val smoothedLandmarks = mutableMapOf<Int, MutableMap<Int, PointF>>()
-    private val smoothingAlpha = 0.45f
+    private val targetLandmarks = mutableMapOf<Int, MutableMap<Int, PointF>>()
+    private val drawnLandmarks = mutableMapOf<Int, MutableMap<Int, PointF>>()
 
     private var imageWidth: Int = 0
     private var imageHeight: Int = 0
@@ -31,6 +58,11 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private val head2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.head2)
     private val body1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.body1)
     private val body2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.body2)
+    
+    private val shoulder1LeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder1_left)
+    private val shoulder1RightBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder1_right)
+    private val shoulder2LeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder2_left)
+    private val shoulder2RightBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder2_right)
 
     private val groundBitmap = BitmapFactory.decodeResource(resources, R.drawable.ground)
     private val rockBitmaps = listOf(
@@ -44,7 +76,8 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         var hits: Int = 0,
         val rect: RectF,
         var isDestroyed: Boolean = false,
-        var velocityY: Float = 0f
+        var velocityY: Float = 0f,
+        var shakeAmount: Float = 0f
     )
 
     enum class GameMode { KESATRIA, DANCE, FIGHTER }
@@ -77,28 +110,30 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private val particles = mutableListOf<Particle>()
     private val random = java.util.Random()
 
+    // Floating Text for Hits
+    data class FloatingText(
+        var x: Float, var y: Float,
+        val text: String, var alpha: Float, var life: Int
+    )
+    private val floatingTexts = mutableListOf<FloatingText>()
+
+    // Screen Shake
+    private var shakeIntensity = 0f
+
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
         isAntiAlias = true
     }
 
-    fun updateKesatriaState(newRocks: List<Rock>, p1Name: String, p2Name: String, winName: String?) {
+    fun updateKesatriaState(newRocks: List<Rock>, p1Score: Int, p2Score: Int, p1Name: String, p2Name: String, winName: String?) {
         if (currentGameMode != GameMode.KESATRIA) gameStartTime = System.currentTimeMillis()
         currentGameMode = GameMode.KESATRIA
         
-        if (this.rocks.isEmpty()) {
-            this.rocks = newRocks.toMutableList()
-        } else {
-            newRocks.forEachIndexed { index, newRock ->
-                if (index < this.rocks.size) {
-                    if (newRock.isDestroyed && !this.rocks[index].isDestroyed) {
-                        spawnRockParticles(this.rocks[index].rect)
-                    }
-                    this.rocks[index].hits = newRock.hits
-                    this.rocks[index].isDestroyed = newRock.isDestroyed
-                }
-            }
-        }
+        // Deep copy rocks to avoid concurrent modification and reference sharing bugs
+        this.rocks = newRocks.map { it.copy(rect = RectF(it.rect)) }.toMutableList()
+        
+        this.scoreP1 = p1Score
+        this.scoreP2 = p2Score
         this.nameP1 = p1Name
         this.nameP2 = p2Name
         if (winName != null && this.winner == null) {
@@ -107,20 +142,50 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         this.winner = winName
         postInvalidateOnAnimation()
     }
+    
+    fun onRockHit(rect: RectF) {
+        spawnHitSparks(rect)
+        floatingTexts.add(FloatingText(rect.centerX(), rect.top, "HIT!", 255f, 30))
+        postInvalidateOnAnimation()
+    }
+    
+    fun onRockDestroyed(rect: RectF) {
+        spawnRockParticles(rect)
+        shakeIntensity = 15f
+        floatingTexts.add(FloatingText(rect.centerX(), rect.centerY(), "BROKEN!", 255f, 40))
+        postInvalidateOnAnimation()
+    }
 
     private fun spawnRockParticles(rect: RectF) {
         val centerX = rect.centerX()
         val centerY = rect.centerY()
-        for (i in 0..15) {
+        for (i in 0..25) {
             particles.add(Particle(
                 x = centerX,
                 y = centerY,
-                vx = (random.nextFloat() - 0.5f) * 20f,
-                vy = (random.nextFloat() - 0.5f) * 20f - 5f,
-                size = random.nextFloat() * 20f + 10f,
+                vx = (random.nextFloat() - 0.5f) * 30f,
+                vy = (random.nextFloat() - 0.5f) * 30f - 10f,
+                size = random.nextFloat() * 25f + 10f,
                 alpha = 255,
-                color = Color.GRAY,
-                life = 30 + random.nextInt(20)
+                color = if (random.nextBoolean()) Color.DKGRAY else Color.GRAY,
+                life = 40 + random.nextInt(20)
+            ))
+        }
+    }
+
+    private fun spawnHitSparks(rect: RectF) {
+        val centerX = rect.centerX()
+        val centerY = rect.centerY()
+        for (i in 0..8) {
+            particles.add(Particle(
+                x = centerX,
+                y = centerY,
+                vx = (random.nextFloat() - 0.5f) * 15f,
+                vy = (random.nextFloat() - 0.5f) * 15f - 5f,
+                size = random.nextFloat() * 8f + 4f,
+                alpha = 255,
+                color = Color.rgb(255, 165, 0), // Orange sparks
+                life = 15 + random.nextInt(10)
             ))
         }
     }
@@ -189,10 +254,19 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     fun setResults(playerId: Int, pose: Pose?, width: Int, height: Int, isFront: Boolean, xOffset: Float = 0f) {
         if (pose != null && pose.allPoseLandmarks.size > 15) {
             playersPose[playerId] = Pair(pose, xOffset)
-            updateSmoothedLandmarks(playerId, pose)
+            
+            // Simpan target kamera langsung secara mentah (real-time)
+            val playerTarget = targetLandmarks.getOrPut(playerId) { mutableMapOf() }
+            pose.allPoseLandmarks.forEach { landmark ->
+                val type = landmark.landmarkType
+                val pos = playerTarget.getOrPut(type) { PointF() }
+                pos.x = landmark.position.x
+                pos.y = landmark.position.y
+            }
         } else {
             playersPose.remove(playerId)
-            smoothedLandmarks.remove(playerId)
+            targetLandmarks.remove(playerId)
+            drawnLandmarks.remove(playerId)
         }
         this.imageWidth = width
         this.imageHeight = height
@@ -200,53 +274,49 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         postInvalidate()
     }
 
-    private fun updateSmoothedLandmarks(playerId: Int, pose: Pose) {
-        val playerSmoothed = smoothedLandmarks.getOrPut(playerId) { mutableMapOf() }
-        pose.allPoseLandmarks.forEach { landmark ->
-            val type = landmark.landmarkType
-            val currentPos = landmark.position
-            val prevPos = playerSmoothed[type]
-            
-            if (prevPos == null) {
-                playerSmoothed[type] = PointF(currentPos.x, currentPos.y)
-            } else {
-                prevPos.x = smoothingAlpha * currentPos.x + (1f - smoothingAlpha) * prevPos.x
-                prevPos.y = smoothingAlpha * currentPos.y + (1f - smoothingAlpha) * prevPos.y
-            }
-        }
-    }
-
     private fun getPos(playerId: Int, type: Int): PointF? {
-        return smoothedLandmarks[playerId]?.get(type)
+        return drawnLandmarks[playerId]?.get(type)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (imageWidth == 0 || imageHeight == 0) return
-
-        val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
-        val canvasOffsetX = (width - imageWidth * scale) / 2f
-        val canvasOffsetY = (height - imageHeight * scale) / 2f
-
-        if (currentGameMode == GameMode.KESATRIA) {
-            val groundCollisionY = height * 0.85f
-            rocks.forEach { rock ->
-                if (!rock.isDestroyed) {
-                    if (rock.rect.bottom < groundCollisionY) {
-                        rock.velocityY += 2.5f
-                        rock.rect.offset(0f, rock.velocityY)
-                    }
-                    if (rock.rect.bottom >= groundCollisionY) {
-                        val h = rock.rect.height()
-                        rock.rect.bottom = groundCollisionY
-                        rock.rect.top = groundCollisionY - h
-                        rock.velocityY = 0f
+        
+        // 60 FPS Interpolation: Menghaluskan patahan frame kamera
+        var needsAnimation = false
+        val interpSpeed = 0.45f // Menentukan tingkat kelengketan/kecepatan respons (0.45 = Super Cepat tapi Mulus)
+        
+        for ((playerId, targets) in targetLandmarks) {
+            val drawn = drawnLandmarks.getOrPut(playerId) { mutableMapOf() }
+            for ((type, targetPos) in targets) {
+                val drawnPos = drawn[type]
+                if (drawnPos == null) {
+                    drawn[type] = PointF(targetPos.x, targetPos.y) // Spawning awal langsung di tempat
+                } else {
+                    drawnPos.x += (targetPos.x - drawnPos.x) * interpSpeed
+                    drawnPos.y += (targetPos.y - drawnPos.y) * interpSpeed
+                    
+                    if (Math.abs(targetPos.x - drawnPos.x) > 1f || Math.abs(targetPos.y - drawnPos.y) > 1f) {
+                        needsAnimation = true
                     }
                 }
             }
         }
 
+        val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
+        val canvasOffsetX = (width - imageWidth * scale) / 2f
+        val canvasOffsetY = (height - imageHeight * scale) / 2f
+
         val saveLayer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+        
+        // Apply Screen Shake
+        if (shakeIntensity > 0) {
+            val shakeX = (random.nextFloat() - 0.5f) * shakeIntensity
+            val shakeY = (random.nextFloat() - 0.5f) * shakeIntensity
+            canvas.translate(shakeX, shakeY)
+            shakeIntensity *= 0.8f
+            if (shakeIntensity < 0.5f) shakeIntensity = 0f
+        }
         
         // Draw dashed separator line instead of solid backgrounds
         val dashedPaint = Paint().apply {
@@ -268,12 +338,20 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         canvas.restoreToCount(saveLayer)
 
         if (currentGameMode == GameMode.KESATRIA) {
-            val groundHeight = height * 0.15f
-            canvas.drawBitmap(groundBitmap, null, RectF(0f, height - groundHeight, width.toFloat(), height.toFloat()), null)
             rocks.forEach { rock ->
                 if (!rock.isDestroyed) {
-                    val bitmapIdx = if (rock.hits < 3) rock.hits else 2
-                    canvas.drawBitmap(rockBitmaps[bitmapIdx], null, rock.rect, null)
+                    val bitmapIdx = Math.min(rock.hits, rockBitmaps.size - 1)
+                    
+                    if (rock.shakeAmount > 0) {
+                        val sx = (Math.random().toFloat() - 0.5f) * rock.shakeAmount
+                        val offsetRect = RectF(rock.rect)
+                        offsetRect.offset(sx, 0f) // Shake horizontally
+                        canvas.drawBitmap(rockBitmaps[bitmapIdx], null, offsetRect, null)
+                        rock.shakeAmount -= 2f
+                        invalidate()
+                    } else {
+                        canvas.drawBitmap(rockBitmaps[bitmapIdx], null, rock.rect, null)
+                    }
                 }
             }
         }
@@ -292,6 +370,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             if (ls != null && rs != null) {
                 val sw = Math.hypot((tx(ls.x) - tx(rs.x)).toDouble(), (ty(ls.y) - ty(rs.y)).toDouble()).toFloat()
                 drawBody(canvas, id, tx, ty, sw * 1.55f)
+                drawShoulders(canvas, id, tx, ty, sw)
                 drawHands(canvas, id, tx, ty, sw * 0.48f)
                 drawHead(canvas, id, tx, ty, sw * 0.95f)
             }
@@ -317,6 +396,28 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             }
         }
 
+        val textIterator = floatingTexts.iterator()
+        val floatTextPaint = Paint().apply {
+            color = Color.YELLOW
+            textSize = 60f
+            isFakeBoldText = true
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(4f, 0f, 0f, Color.BLACK)
+            typeface = gameTypeface
+        }
+        while (textIterator.hasNext()) {
+            val ft = textIterator.next()
+            ft.y -= 3f // Float up
+            ft.alpha *= 0.9f
+            ft.life--
+            if (ft.life <= 0 || ft.alpha <= 10f) {
+                textIterator.remove()
+            } else {
+                floatTextPaint.alpha = ft.alpha.toInt()
+                canvas.drawText(ft.text, ft.x, ft.y, floatTextPaint)
+            }
+        }
+
         when (currentGameMode) {
             GameMode.DANCE -> drawDanceOverlay(canvas)
             GameMode.FIGHTER -> drawFighterOverlay(canvas)
@@ -325,7 +426,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         if (currentGameMode == GameMode.KESATRIA && rocks.any { !it.isDestroyed && it.rect.bottom < height * 0.85f }) postInvalidateOnAnimation()
         if (currentGameMode == GameMode.FIGHTER && projectiles.isNotEmpty()) postInvalidateOnAnimation()
-        if (particles.isNotEmpty()) postInvalidateOnAnimation()
+        if (particles.isNotEmpty() || floatingTexts.isNotEmpty() || shakeIntensity > 0 || needsAnimation) postInvalidateOnAnimation()
     }
 
     private fun drawDanceOverlay(canvas: Canvas) {
@@ -371,9 +472,11 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         
         paint.textSize = 80f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText(scoreP1.toString(), 50f, 160f, paint)
+        val s1Text = if (currentGameMode == GameMode.KESATRIA) "$scoreP1/5" else scoreP1.toString()
+        val s2Text = if (currentGameMode == GameMode.KESATRIA) "$scoreP2/5" else scoreP2.toString()
+        canvas.drawText(s1Text, 50f, 160f, paint)
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText(scoreP2.toString(), width - 50f, 160f, paint)
+        canvas.drawText(s2Text, width - 50f, 160f, paint)
 
         if (currentGameMode == GameMode.FIGHTER) {
             paint.style = Paint.Style.STROKE
@@ -386,18 +489,6 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             paint.color = Color.GREEN
             canvas.drawRect(50f, 180f, 50f + (hpP1 * 3f), 210f, paint)
             canvas.drawRect(width - 50f - (hpP2 * 3f), 180f, width - 50f, 210f, paint)
-        }
-
-        winner?.let {
-            val winPaint = Paint().apply {
-                color = Color.YELLOW
-                textSize = 120f
-                textAlign = Paint.Align.CENTER
-                isFakeBoldText = true
-                setShadowLayer(15f, 0f, 0f, Color.RED)
-                typeface = gameTypeface
-            }
-            canvas.drawText("$it WINS!", width / 2f, height / 2f, winPaint)
         }
     }
 
@@ -486,6 +577,9 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             } else {
                 bodyWidth * 1.1f
             }
+            val scaledWidth = bodyWidth * Config.bodyScale
+            val scaledHeight = bodyHeight * Config.bodyScale
+
             canvas.withSave {
                 val angle = if (isFrontCamera) {
                     Math.toDegrees(Math.atan2((rsY - lsY).toDouble(), (rsX - lsX).toDouble())).toFloat()
@@ -494,9 +588,64 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 }
                 canvas.rotate(angle, midShoulderX, midShoulderY)
                 if (isFrontCamera) canvas.scale(-1f, 1f, midShoulderX, midShoulderY)
-                val rect = RectF(midShoulderX - bodyWidth / 2, midShoulderY - bodyHeight * 0.25f, midShoulderX + bodyWidth / 2, midShoulderY + bodyHeight * 0.75f)
+                val rect = RectF(
+                    midShoulderX - scaledWidth / 2 + Config.bodyOffsetX, 
+                    midShoulderY - scaledHeight * 0.25f + Config.bodyOffsetY, 
+                    midShoulderX + scaledWidth / 2 + Config.bodyOffsetX, 
+                    midShoulderY + scaledHeight * 0.75f + Config.bodyOffsetY
+                )
                 canvas.drawBitmap(bodyBitmap, null, rect, null)
             }
+        }
+    }
+
+    private fun drawShoulders(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, shoulderWidth: Float) {
+        val leftShoulder = getPos(id, PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = getPos(id, PoseLandmark.RIGHT_SHOULDER)
+        
+        if (leftShoulder == null || rightShoulder == null) return
+        
+        // Tukar posisi gambar karena kamera depan itu *mirrored*
+        val leftBitmap = if (id == 1) shoulder1RightBitmap else shoulder2RightBitmap
+        val rightBitmap = if (id == 1) shoulder1LeftBitmap else shoulder2LeftBitmap
+        
+        val padSize = shoulderWidth * 0.7f // Size relative to player width
+        
+        val lsX = tx(leftShoulder.x)
+        val lsY = ty(leftShoulder.y)
+        val rsX = tx(rightShoulder.x)
+        val rsY = ty(rightShoulder.y)
+        
+        val angle = if (isFrontCamera) {
+            Math.toDegrees(Math.atan2((rsY - lsY).toDouble(), (rsX - lsX).toDouble())).toFloat()
+        } else {
+            Math.toDegrees(Math.atan2((lsY - rsY).toDouble(), (lsX - rsX).toDouble())).toFloat()
+        }
+        
+        val scaledPadSize = padSize * Config.shoulderScale
+        
+        // Draw Left Shoulder Pad (left side of screen -> physical right shoulder)
+        canvas.withSave {
+            canvas.rotate(angle, rsX, rsY)
+            val rect = RectF(
+                rsX - scaledPadSize / 2 + Config.leftShoulderOffsetX, 
+                rsY - scaledPadSize / 2 + Config.leftShoulderOffsetY, 
+                rsX + scaledPadSize / 2 + Config.leftShoulderOffsetX, 
+                rsY + scaledPadSize / 2 + Config.leftShoulderOffsetY
+            )
+            canvas.drawBitmap(leftBitmap, null, rect, null)
+        }
+        
+        // Draw Right Shoulder Pad (right side of screen -> physical left shoulder)
+        canvas.withSave {
+            canvas.rotate(angle, lsX, lsY)
+            val rect = RectF(
+                lsX - scaledPadSize / 2 + Config.rightShoulderOffsetX, 
+                lsY - scaledPadSize / 2 + Config.rightShoulderOffsetY, 
+                lsX + scaledPadSize / 2 + Config.rightShoulderOffsetX, 
+                lsY + scaledPadSize / 2 + Config.rightShoulderOffsetY
+            )
+            canvas.drawBitmap(rightBitmap, null, rect, null)
         }
     }
 
@@ -505,8 +654,8 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val rightWrist = getPos(id, PoseLandmark.RIGHT_WRIST)
         val leftElbow = getPos(id, PoseLandmark.LEFT_ELBOW)
         val rightElbow = getPos(id, PoseLandmark.RIGHT_ELBOW)
-        leftWrist?.let { wrist -> drawRotatedHand(canvas, handRightBitmap, wrist, leftElbow, tx, ty, handSize) }
-        rightWrist?.let { wrist -> drawRotatedHand(canvas, handLeftBitmap, wrist, rightElbow, tx, ty, handSize) }
+        leftWrist?.let { wrist -> drawRotatedHand(canvas, handRightBitmap, wrist, leftElbow, tx, ty, handSize, Config.rightHandOffsetX, Config.rightHandOffsetY) }
+        rightWrist?.let { wrist -> drawRotatedHand(canvas, handLeftBitmap, wrist, rightElbow, tx, ty, handSize, Config.leftHandOffsetX, Config.leftHandOffsetY) }
     }
 
     private fun drawHead(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, headSize: Float) {
@@ -526,25 +675,30 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                     }
                     canvas.rotate(angle, hx, hy)
                 }
+                val scaledHeadSize = headSize * Config.headScale
                 if (isFrontCamera) canvas.scale(-1f, 1f, hx, hy)
-                val rect = RectF(hx - headSize / 2, hy - headSize * 0.75f, hx + headSize / 2, hy + headSize * 0.25f)
+                val rect = RectF(
+                    hx - scaledHeadSize / 2 + Config.headOffsetX, 
+                    hy - scaledHeadSize * 0.75f + Config.headOffsetY, 
+                    hx + scaledHeadSize / 2 + Config.headOffsetX, 
+                    hy + scaledHeadSize * 0.25f + Config.headOffsetY
+                )
                 canvas.drawBitmap(headBitmap, null, rect, null)
             }
         }
     }
 
-    private fun drawRotatedHand(canvas: Canvas, bitmap: Bitmap, wrist: PointF, elbow: PointF?, tx: (Float) -> Float, ty: (Float) -> Float, handSize: Float) {
+    private fun drawRotatedHand(canvas: Canvas, bitmap: Bitmap, wrist: PointF, elbow: PointF?, tx: (Float) -> Float, ty: (Float) -> Float, handSize: Float, offsetX: Float, offsetY: Float) {
         val wx = tx(wrist.x)
         val wy = ty(wrist.y)
-        canvas.withSave {
-            if (elbow != null) {
-                val ex = tx(elbow.x)
-                val ey = ty(elbow.y)
-                val angle = Math.toDegrees(Math.atan2((wy - ey).toDouble(), (wx - ex).toDouble())).toFloat()
-                canvas.rotate(angle, wx, wy)
-            }
-            val rect = RectF(wx - handSize / 2, wy - handSize / 2, wx + handSize / 2, wy + handSize / 2)
-            canvas.drawBitmap(bitmap, null, rect, null)
-        }
+        
+        val scaledHandSize = handSize * Config.handScale
+        val rect = RectF(
+            wx - scaledHandSize / 2 + offsetX, 
+            wy - scaledHandSize / 2 + offsetY, 
+            wx + scaledHandSize / 2 + offsetX, 
+            wy + scaledHandSize / 2 + offsetY
+        )
+        canvas.drawBitmap(bitmap, null, rect, null)
     }
 }

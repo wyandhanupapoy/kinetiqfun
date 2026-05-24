@@ -4,9 +4,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/loading_bg"
+    android:background="@android:color/black"
     android:clipChildren="false"
     android:clipToPadding="false">
+
+    <!-- Glitch Background -->
+    <org.example.kinetiqfun.SnowBackgroundView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Top Left Logo -->
     <ImageView
@@ -17,6 +26,22 @@
         android:adjustViewBounds="true"
         android:src="@drawable/game_logo"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Info Button -->
+    <Button
+        android:id="@+id/btnInfo"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_margin="16dp"
+        android:backgroundTint="#03A9F4"
+        android:text="!"
+        android:textColor="@android:color/white"
+        android:textSize="24sp"
+        android:fontFamily="@font/game_font"
+        android:textStyle="bold"
+        android:elevation="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Title: Select Game -->
@@ -41,7 +66,9 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvGames"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:orientation="horizontal"

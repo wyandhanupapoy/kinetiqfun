@@ -1,23 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 1. Background Bar (Wadah) -->
     <item android:id="@android:id/background">
         <shape>
-            <corners android:radius="16dp" />
-            <solid android:color="#44000000" />
-            <stroke android:width="2dp" android:color="#33FFFFFF" />
+            <corners android:radius="8dp"/>
+            <solid android:color="#3300F0FF" />
+            <stroke android:width="1dp" android:color="#4D00F0FF" />
         </shape>
     </item>
-
-    <!-- 2. Isi Progress (Motif Strip Kuning Anda) -->
     <item android:id="@android:id/progress">
-        <clip
-            android:clipOrientation="horizontal"
-            android:gravity="left">
-            <bitmap
-                android:src="@drawable/loading_fill"
-                android:tileMode="repeat"
-                android:gravity="fill_vertical" />
+        <clip>
+            <shape>
+                <corners android:radius="8dp"/>
+                <gradient
+                    android:startColor="#00B8C4"
+                    android:endColor="#00F0FF"
+                    android:angle="0" />
+            </shape>
         </clip>
     </item>
 </layer-list>
