@@ -89,6 +89,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var scoreP1 = 0
     private var scoreP2 = 0
     private var winner: String? = null
+    private var winSoundPlayed = false
 
     private var currentTargetPoseName = "IDLE"
     private var p1MatchProgress = 0f
@@ -126,7 +127,10 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     fun updateKesatriaState(newRocks: List<Rock>, p1Score: Int, p2Score: Int, p1Name: String, p2Name: String, winName: String?) {
-        if (currentGameMode != GameMode.KESATRIA) gameStartTime = System.currentTimeMillis()
+        if (currentGameMode != GameMode.KESATRIA) {
+            gameStartTime = System.currentTimeMillis()
+            winSoundPlayed = false
+        }
         currentGameMode = GameMode.KESATRIA
         
         // Deep copy rocks to avoid concurrent modification and reference sharing bugs
@@ -191,7 +195,10 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     fun updateDanceState(targetPose: String, p1Prog: Float, p2Prog: Float, s1: Int, s2: Int, p1Name: String, p2Name: String, winName: String?) {
-        if (currentGameMode != GameMode.DANCE) gameStartTime = System.currentTimeMillis()
+        if (currentGameMode != GameMode.DANCE) {
+            gameStartTime = System.currentTimeMillis()
+            winSoundPlayed = false
+        }
         currentGameMode = GameMode.DANCE
         currentTargetPoseName = targetPose
         p1MatchProgress = p1Prog
@@ -208,7 +215,10 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     fun updateFighterState(projs: List<Projectile>, h1: Int, h2: Int, p1Name: String, p2Name: String, winName: String?) {
-        if (currentGameMode != GameMode.FIGHTER) gameStartTime = System.currentTimeMillis()
+        if (currentGameMode != GameMode.FIGHTER) {
+            gameStartTime = System.currentTimeMillis()
+            winSoundPlayed = false
+        }
         currentGameMode = GameMode.FIGHTER
         
         if (h1 < this.hpP1) spawnHitParticles(width * 0.25f, height * 0.5f, Color.RED)
@@ -281,6 +291,11 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (imageWidth == 0 || imageHeight == 0) return
+
+        if (winner != null && !winSoundPlayed) {
+            (context as? BasePoseActivity)?.playVictorySound()
+            winSoundPlayed = true
+        }
         
         // 60 FPS Interpolation: Menghaluskan patahan frame kamera
         var needsAnimation = false
@@ -426,7 +441,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         if (currentGameMode == GameMode.KESATRIA && rocks.any { !it.isDestroyed && it.rect.bottom < height * 0.85f }) postInvalidateOnAnimation()
         if (currentGameMode == GameMode.FIGHTER && projectiles.isNotEmpty()) postInvalidateOnAnimation()
-        if (particles.isNotEmpty() || floatingTexts.isNotEmpty() || shakeIntensity > 0 || needsAnimation) postInvalidateOnAnimation()
+        if (particles.isNotEmpty() || floatingTexts.isNotEmpty() || shakeIntensity > 0 || needsAnimation || winner != null) postInvalidateOnAnimation()
     }
 
     private fun drawDanceOverlay(canvas: Canvas) {
@@ -489,6 +504,53 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             paint.color = Color.GREEN
             canvas.drawRect(50f, 180f, 50f + (hpP1 * 3f), 210f, paint)
             canvas.drawRect(width - 50f - (hpP2 * 3f), 180f, width - 50f, 210f, paint)
+        }
+
+        winner?.let { winName ->
+            drawWinnerOverlay(canvas, winName)
+        }
+    }
+
+    private fun drawWinnerOverlay(canvas: Canvas, winName: String) {
+        val overlayPaint = Paint().apply {
+            color = Color.argb(150, 0, 0, 0)
+        }
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
+
+        val textPaint = Paint().apply {
+            color = Color.YELLOW
+            textSize = 100f
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+            setShadowLayer(15f, 0f, 0f, Color.RED)
+            typeface = gameTypeface
+        }
+
+        val bounce = (Math.sin(System.currentTimeMillis() * 0.01) * 20).toFloat()
+        canvas.drawText("WINNER!", width / 2f, height / 2f - 50f + bounce, textPaint)
+        
+        textPaint.textSize = 80f
+        textPaint.color = Color.WHITE
+        canvas.drawText(winName, width / 2f, height / 2f + 80f + bounce, textPaint)
+        
+        // Add some "celebration" lines
+        val linePaint = Paint().apply {
+            color = Color.YELLOW
+            strokeWidth = 10f
+            style = Paint.Style.STROKE
+        }
+        val time = System.currentTimeMillis() * 0.005
+        for (i in 0 until 8) {
+            val angle = i * (Math.PI / 4) + time
+            val r1 = 200f
+            val r2 = 300f
+            canvas.drawLine(
+                width / 2f + Math.cos(angle).toFloat() * r1,
+                height / 2f + Math.sin(angle).toFloat() * r1,
+                width / 2f + Math.cos(angle).toFloat() * r2,
+                height / 2f + Math.sin(angle).toFloat() * r2,
+                linePaint
+            )
         }
     }
 

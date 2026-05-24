@@ -44,6 +44,12 @@ abstract class BasePoseActivity : AppCompatActivity() {
     protected var soundIdAction: Int = 0
     protected var soundIdVictory: Int = 0
 
+    fun playVictorySound() {
+        if (soundIdVictory != 0) {
+            soundPool.play(soundIdVictory, 1f, 1f, 1, 0, 1f)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -62,8 +68,12 @@ abstract class BasePoseActivity : AppCompatActivity() {
         val actionId = resources.getIdentifier("action", "raw", packageName)
         if (actionId != 0) soundIdAction = soundPool.load(this, actionId, 1)
 
-        val victoryId = resources.getIdentifier("victory", "raw", packageName)
+        val victoryId = resources.getIdentifier("win_sfx", "raw", packageName)
         if (victoryId != 0) soundIdVictory = soundPool.load(this, victoryId, 1)
+        else {
+            val oldVictoryId = resources.getIdentifier("victory", "raw", packageName)
+            if (oldVictoryId != 0) soundIdVictory = soundPool.load(this, oldVictoryId, 1)
+        }
 
         if (allPermissionsGranted()) {
             startCamera()

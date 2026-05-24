@@ -108,6 +108,17 @@ object RainbowTransition {
 
     fun reveal(activity: Activity) {
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        
+        // Hapus semua RainbowTransitionView lama agar tidak menyangkut saat kembali (back)
+        val viewsToRemove = mutableListOf<View>()
+        for (i in 0 until root.childCount) {
+            val child = root.getChildAt(i)
+            if (child is RainbowTransitionView) {
+                viewsToRemove.add(child)
+            }
+        }
+        viewsToRemove.forEach { root.removeView(it) }
+
         val view = RainbowTransitionView(activity)
         view.mode = 1
         view.elevation = 9999f
