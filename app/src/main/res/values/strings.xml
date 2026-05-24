@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KinetiQFun</string>
+    <string name="skip">Skip</string>
+    <string name="next">Next</string>
+    <string name="get_started">Get Started</string>
+    
+    <!-- Tutorial Pose Detection -->
+    <string name="tutorial_title_pose">Learn the Basics</string>
+    <string name="tutorial_desc_pose">Stand in front of the camera and move your body. The game will track your pose to control the gameplay.</string>
+    
+    <!-- Tutorial Kesatria -->
+    <string name="tutorial_title_kesatria">Kesatria PCD</string>
+    <string name="tutorial_desc_kesatria">Break rocks by coordinating with your partner. Use your wrists to strike and destroy incoming obstacles.</string>
+    
+    <!-- Tutorial Dance -->
+    <string name="tutorial_title_dance">Dance Master</string>
+    <string name="tutorial_desc_dance">Match the target pose shown on screen. The better your pose matches, the higher your score!</string>
+    
+    <!-- Tutorial Fighter -->
+    <string name="tutorial_title_fighter">Pose Fighter</string>
+    <string name="tutorial_desc_fighter">Throw projectiles by extending your arms. Dodge incoming attacks by moving your body left and right.</string>
+    
+    <!-- Content descriptions -->
+    <string name="tutorial_icon">Tutorial Icon</string>
+    <string name="game_card_description">Game selection card. Double tap to start game.</string>
+    <string name="game_cardbox">Game card artwork</string>
+    <string name="game_screenshot">Gameplay screenshot</string>
+    <string name="game_blur_overlay">Visual indicator for selected game</string>
+    
+    <!-- Tooltips -->
+    <string name="tooltip_camera_switch">Tap to switch between front and back camera</string>
+    <string name="tooltip_player1_area">Player 1 area - Strike with your left and right wrists</string>
+    <string name="tooltip_player2_area">Player 2 area - Strike with your left and right wrists</string>
+    <string name="tooltip_target_pose">Match the pose shown at the top</string>
+    <string name="tooltip_progress_bars">Fill the bar by matching the pose</string>
+    <string name="tooltip_health_bars">Reduce opponent health to zero</string>
+    <string name="tooltip_projectiles">Punch forward to shoot projectiles</string>
+    <string name="tooltip_arrow">Tooltip Arrow</string>
+</resources>

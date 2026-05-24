@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.App.Starting" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+
+        <!-- Menangani Android 12+ Splash Screen -->
+        <item name="android:windowSplashScreenBackground">@android:color/black</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+
+        <!-- Menghilangkan 'Starting Window' agar langsung masuk ke activity -->
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+</resources>

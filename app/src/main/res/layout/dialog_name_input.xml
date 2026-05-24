@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/loading_bar_background"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/game_font"
+        android:text="Kesatria Sisi Kiri (Cyan)"
+        android:textColor="#00FFFF"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/editP1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#00FFFF"
+        android:fontFamily="@font/game_font"
+        android:hint="Nama Player 1"
+        android:inputType="textPersonName"
+        android:maxLength="12"
+        android:textColor="@android:color/white"
+        android:textColorHint="#8800FFFF" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="24dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/game_font"
+        android:text="Kesatria Sisi Kanan (Magenta)"
+        android:textColor="#FF00FF"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/editP2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#FF00FF"
+        android:fontFamily="@font/game_font"
+        android:hint="Nama Player 2"
+        android:inputType="textPersonName"
+        android:maxLength="12"
+        android:textColor="@android:color/white"
+        android:textColorHint="#88FF00FF" />
+
+    <Button
+        android:id="@+id/btnStartGame"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:backgroundTint="#FFEB3B"
+        android:fontFamily="@font/game_font"
+        android:text="MULAI PERTANDINGAN"
+        android:textColor="@android:color/black"
+        android:textStyle="bold" />
+
+</LinearLayout>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tooltip Animation -->
+    <style name="TooltipAnimation">
+        <item name="android:windowEnterAnimation">@anim/tooltip_fade_in</item>
+        <item name="android:windowExitAnimation">@anim/tooltip_fade_out</item>
+    </style>
+</resources>

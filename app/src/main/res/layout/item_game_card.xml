@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/gameCardContainer"
+    android:layout_width="320dp"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:padding="10dp"
+    android:contentDescription="@string/game_card_description"
+    android:foreground="?attr/selectableItemBackground">
+
+    <!-- Cardbox Container -->
+    <ImageView
+        android:id="@+id/imgCardbox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:src="@drawable/cardbox"
+        android:contentDescription="@string/game_cardbox"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <!-- Screenshot Placeholder - Rasio 16:9 -->
+    <ImageView
+        android:id="@+id/imgScreenshot"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#000000"
+        android:contentDescription="@string/game_screenshot"
+        android:scaleType="centerCrop"
+        app:layout_constraintDimensionRatio="16:9"
+        app:layout_constraintBottom_toBottomOf="@+id/imgCardbox"
+        app:layout_constraintEnd_toEndOf="@+id/imgCardbox"
+        app:layout_constraintStart_toStartOf="@+id/imgCardbox"
+        app:layout_constraintTop_toTopOf="@+id/imgCardbox"
+        app:layout_constraintVertical_bias="0.42"
+        app:layout_constraintWidth_percent="0.84" />
+
+    <!-- Overlay untuk Efek Blur/Gelap -->
+    <View
+        android:id="@+id/blurOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#DD000000"
+        android:contentDescription="@string/game_blur_overlay"
+        app:layout_constraintTop_toTopOf="@id/imgCardbox"
+        app:layout_constraintBottom_toBottomOf="@id/imgCardbox"
+        app:layout_constraintStart_toStartOf="@id/imgCardbox"
+        app:layout_constraintEnd_toEndOf="@id/imgCardbox" />
+
+    <!-- Judul Game -->
+    <TextView
+        android:id="@+id/txtGameTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:fontFamily="@font/game_font"
+        android:gravity="center"
+        android:text="Kesatria PCD"
+        android:textColor="@android:color/white"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:shadowColor="#000000"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="4"
+        app:layout_constraintBottom_toBottomOf="@+id/imgCardbox"
+        app:layout_constraintEnd_toEndOf="@+id/imgCardbox"
+        app:layout_constraintStart_toStartOf="@+id/imgCardbox" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
