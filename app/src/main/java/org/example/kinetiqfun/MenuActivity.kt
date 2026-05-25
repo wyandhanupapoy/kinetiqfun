@@ -112,6 +112,13 @@ class MenuActivity : AppCompatActivity() {
                     child.scaleX = clampedScale
                     child.scaleY = clampedScale
                     
+                    // 3D Carousel Tilt Effect
+                    val tiltDegrees = 45f // Maximum tilt angle
+                    val normalizedDistance = (centerX - childCenterX) / maxDistance
+                    val rotation = normalizedDistance * tiltDegrees
+                    child.rotationY = Math.max(-tiltDegrees, Math.min(rotation, tiltDegrees))
+                    child.cameraDistance = resources.displayMetrics.density * 5000f
+                    
                     // Control the blur overlay alpha based on distance from center
                     val blurOverlay = child.findViewById<android.view.View>(R.id.blurOverlay)
                     val blurAlpha = (distanceFromCenter / (maxDistance * 0.5f))
