@@ -13,6 +13,7 @@ class KinetiqFunApp : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
+        SoundManager.init(this)
         
         // Setup Media Player
         mediaPlayer = MediaPlayer.create(this, R.raw.background_music)
@@ -43,6 +44,15 @@ class KinetiqFunApp : Application(), Application.ActivityLifecycleCallbacks {
                 it.pause()
             }
         }
+    }
+
+    fun changeMusic(resId: Int) {
+        if (!isMusicEnabled) return
+        mediaPlayer?.release()
+        val finalResId = if (resId == 0) R.raw.background_music else resId
+        mediaPlayer = MediaPlayer.create(this, finalResId)
+        mediaPlayer?.isLooping = true
+        if (startedActivitiesCount > 0) mediaPlayer?.start()
     }
 
     override fun onActivityStarted(activity: Activity) {

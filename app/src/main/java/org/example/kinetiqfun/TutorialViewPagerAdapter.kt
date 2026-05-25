@@ -19,7 +19,7 @@ class TutorialViewPagerAdapter(tutorialActivity: TutorialActivity) :
             R.string.tutorial_desc_pose
         ),
         TutorialSlide(
-            R.drawable.rock1,
+            R.drawable.box,
             R.string.tutorial_title_kesatria,
             R.string.tutorial_desc_kesatria
         ),

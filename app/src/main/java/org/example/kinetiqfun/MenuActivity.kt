@@ -27,6 +27,7 @@ class MenuActivity : AppCompatActivity() {
 
         val btnInfo = findViewById<android.widget.Button>(R.id.btnInfo)
         btnInfo.setOnClickListener {
+            SoundManager.playClick()
             val dialogView = layoutInflater.inflate(R.layout.dialog_developer_info, null)
             val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
                 .setView(dialogView)
@@ -35,6 +36,7 @@ class MenuActivity : AppCompatActivity() {
             dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
             
             dialogView.findViewById<android.widget.Button>(R.id.btnCloseDialog).setOnClickListener {
+                SoundManager.playClick()
                 dialog.dismiss()
             }
             dialog.show()
@@ -48,19 +50,37 @@ class MenuActivity : AppCompatActivity() {
         
         val games = listOf(
             GameItem(1, "Kesatria PCD", null),
-            GameItem(2, "Dance Master", null),
+            GameItem(2, "Geol Kicau Mania", null),
             GameItem(3, "Pose Fighter", null)
         )
 
-        val adapter = GameAdapter(games) { game ->
-            val intent = when (game.id) {
-                1 -> Intent(this, KesatriaPCDActivity::class.java)
-                2 -> Intent(this, GameTwoActivity::class.java)
-                3 -> Intent(this, GameThreeActivity::class.java)
-                else -> null
-            }
-            intent?.let {
-                RainbowTransition.navigate(this, it, finishCurrent = false)
+        val adapter = GameAdapter(games) { game, position ->
+            val layoutManager = rvGames.layoutManager as LinearLayoutManager
+            val centerX = rvGames.width / 2
+            
+            // Get the view of the clicked item
+            val itemView = layoutManager.findViewByPosition(position)
+            if (itemView != null) {
+                val itemCenterX = (itemView.left + itemView.right) / 2
+                val distance = Math.abs(centerX - itemCenterX)
+                
+                // If the item is close to the center (not blurred), play the game
+                // Using a small threshold because PagerSnapHelper might not be perfectly at 0 distance
+                if (distance < itemView.width / 4) {
+                    SoundManager.playClick()
+                    val intent = when (game.id) {
+                        1 -> Intent(this, KesatriaPCDActivity::class.java)
+                        2 -> Intent(this, GameTwoActivity::class.java)
+                        3 -> Intent(this, GameThreeActivity::class.java)
+                        else -> null
+                    }
+                    intent?.let {
+                        RainbowTransition.navigate(this, it, finishCurrent = false)
+                    }
+                } else {
+                    // If it's not in center, scroll to it
+                    rvGames.smoothScrollToPosition(position)
+                }
             }
         }
 

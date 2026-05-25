@@ -11,6 +11,11 @@ import android.os.CountDownTimer
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.Uri
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.content.Context
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -37,14 +42,61 @@ class KesatriaPCDActivity : BasePoseActivity() {
     private val lastHandY = mutableMapOf<Int, Float>()
     
     // Race Mode State
-    private val totalRocksGoal = 5
+    private val totalRocksGoal = 3
     private var p1DestroyedCount = 0
     private var p2DestroyedCount = 0
     private var nextRockId = 0
 
+    // Waiting logic
+    private var isWaitingForPlayers = false
+    private var lastP1DetectTime = 0L
+    private var lastP2DetectTime = 0L
+    
+    // Stability sensor
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+    private var isDeviceStable = false
+    private var lastAccelX = 0f
+    private var lastAccelY = 0f
+    private var lastAccelZ = 0f
+    private var stableCount = 0
+
+    private val sensorEventListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+            
+            val delta = Math.abs(x - lastAccelX) + Math.abs(y - lastAccelY) + Math.abs(z - lastAccelZ)
+            
+            // Check if device is laying flat (Z axis gravity near 9.8 or -9.8).
+            // Reject if Z is too high, meaning the screen is facing the ceiling or the table.
+            val isNotLayingFlat = Math.abs(z) < 7.5f
+            
+            if (delta < 0.5f && isNotLayingFlat) {
+                stableCount++
+                if (stableCount > 10) isDeviceStable = true // about 0.2s of no movement
+            } else {
+                stableCount = 0
+                isDeviceStable = false
+            }
+            
+            lastAccelX = x
+            lastAccelY = y
+            lastAccelZ = z
+        }
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         isGameStarted = false // Wait for tutorial
+        
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        
+        // Change BGM specifically for Kesatria PCD mode
+        (application as KinetiqFunApp).changeMusic(R.raw.kesatria_pcd_background_music)
         
         val videoPath = "android.resource://$packageName/${R.raw.tutorial_kesatriapcd}"
         binding.tutorialVideoView.setVideoURI(Uri.parse(videoPath))
@@ -71,13 +123,13 @@ class KesatriaPCDActivity : BasePoseActivity() {
         binding.tutorialVideoView.setOnCompletionListener {
             tutorialTimer?.cancel()
             binding.tutorialVideoContainer.visibility = View.GONE
-            startCountdown()
+            startWaitingForPlayers()
         }
         
         binding.tutorialVideoView.setOnErrorListener { _, _, _ ->
             tutorialTimer?.cancel()
             binding.tutorialVideoContainer.visibility = View.GONE
-            startCountdown()
+            startWaitingForPlayers()
             true // Handled, prevent crash
         }
         
@@ -91,6 +143,43 @@ class KesatriaPCDActivity : BasePoseActivity() {
                 showInitialTooltips()
             }
         })
+    }
+
+    override fun onResume() {
+        super.onResume()
+        accelerometer?.let {
+            sensorManager.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(sensorEventListener)
+    }
+
+    private fun startWaitingForPlayers() {
+        isWaitingForPlayers = true
+        binding.waitingLayout.visibility = View.VISIBLE
+        
+        val handler = Handler(Looper.getMainLooper())
+        val checkRunnable = object : Runnable {
+            override fun run() {
+                if (!isWaitingForPlayers) return
+                
+                val now = System.currentTimeMillis()
+                val p1Detected = (now - lastP1DetectTime) < 1500 // Detected within 1.5 seconds
+                val p2Detected = (now - lastP2DetectTime) < 1500
+                
+                if (p1Detected && p2Detected && isDeviceStable) {
+                    isWaitingForPlayers = false
+                    binding.waitingLayout.visibility = View.GONE
+                    startCountdown()
+                } else {
+                    handler.postDelayed(this, 500)
+                }
+            }
+        }
+        handler.post(checkRunnable)
     }
 
     private fun startCountdown() {
@@ -132,8 +221,8 @@ class KesatriaPCDActivity : BasePoseActivity() {
     private fun initRocks(width: Int, height: Int) {
         rocks.clear()
         
-        // Spawn exactly 5 rocks per player
-        for (i in 0 until 5) {
+        // Spawn exactly 3 rocks per player to match the visual
+        for (i in 0 until 3) {
             spawnRockForPlayer(1, width, height, i)
             spawnRockForPlayer(2, width, height, i)
         }
@@ -146,16 +235,15 @@ class KesatriaPCDActivity : BasePoseActivity() {
     }
 
     private fun spawnRockForPlayer(playerId: Int, screenWidth: Int, screenHeight: Int, index: Int) {
-        val rockWidth = screenWidth / 14f // Made rocks smaller
-        val rockHeight = rockWidth * 1.1f
+        val rockWidth = screenWidth / 10f // Made rocks a bit bigger to match boxes
+        val rockHeight = rockWidth
         
         // Player 1 area is [0, screenWidth/2], Player 2 area is [screenWidth/2, screenWidth]
         val areaWidth = screenWidth / 2f
         val startX = if (playerId == 1) 0f else areaWidth
         
-        // Exact slots: index 0,1,2 on bottom layer. index 3,4 on middle layer.
-        val layer = if (index < 3) 0 else 1
-        val slotMultipliers = listOf(0.2f, 0.5f, 0.8f, 0.35f, 0.65f)
+        // Horizontal slots: 0.2, 0.5, 0.8
+        val slotMultipliers = listOf(0.2f, 0.5f, 0.8f)
         val slotMultiplier = slotMultipliers[index % slotMultipliers.size]
         
         var x = startX + (areaWidth * slotMultiplier) - (rockWidth / 2f)
@@ -165,12 +253,13 @@ class KesatriaPCDActivity : BasePoseActivity() {
         val maxX = if (playerId == 1) screenWidth / 2f - rockWidth else screenWidth - rockWidth
         x = maxOf(minX, minOf(x, maxX))
         
-        // Static positioning from the very bottom
+        // Static positioning from the bottom
         val baseY = screenHeight.toFloat()
-        val startY = baseY - (rockHeight * (layer + 1))
+        val startY = baseY - rockHeight - 50f // 50f offset from bottom
         
         val newRock = OverlayView.Rock(
-            id = nextRockId++, 
+            id = nextRockId++,
+            ownerId = playerId,
             rect = RectF(x, startY, x + rockWidth, startY + rockHeight),
             velocityY = 0f
         )
@@ -178,7 +267,10 @@ class KesatriaPCDActivity : BasePoseActivity() {
     }
 
     override fun onPoseDetected(playerId: Int, pose: Pose, pXOffset: Float, imgWidth: Int, imgHeight: Int) {
-        if (!isGameStarted || winner != null) return
+        if (playerId == 1) lastP1DetectTime = System.currentTimeMillis()
+        if (playerId == 2) lastP2DetectTime = System.currentTimeMillis()
+        
+        if (!isGameStarted || winner != null || isWaitingForPlayers) return
         
         val overlay = binding.overlayView
         // Only initialize when view has realistic dimensions
@@ -227,51 +319,48 @@ class KesatriaPCDActivity : BasePoseActivity() {
         val rockIterator = rocks.iterator()
         while (rockIterator.hasNext()) {
             val rock = rockIterator.next()
-            if (!rock.isDestroyed) {
-                val isP1Area = rock.rect.centerX() < binding.overlayView.width / 2f
-                if ((playerId == 1 && isP1Area) || (playerId == 2 && !isP1Area)) {
-                    val hitZone = RectF(rock.rect.left - 40f, rock.rect.top - 50f, rock.rect.right + 40f, rock.rect.bottom + 40f)
+            if (!rock.isDestroyed && rock.ownerId == playerId) {
+                val hitZone = RectF(rock.rect.left - 40f, rock.rect.top - 50f, rock.rect.right + 40f, rock.rect.bottom + 40f)
+                
+                val velocityY = y - lastY
+                val isSwingingDown = velocityY > 25f // Must be moving down fast enough
+                val startedFromAbove = lastY < rock.rect.top + (rock.rect.height() / 2f) // Must come from the top
+                
+                if (hitZone.contains(x, y) && isSwingingDown && startedFromAbove) {
+                    rock.hits++
+                    isHit = true
                     
-                    val velocityY = y - lastY
-                    val isSwingingDown = velocityY > 25f // Must be moving down fast enough
-                    val startedFromAbove = lastY < rock.rect.top + (rock.rect.height() / 2f) // Must come from the top
+                    // Trigger visuals on UI thread
+                    val rockRectCopy = RectF(rock.rect)
+                    runOnUiThread { binding.overlayView.onRockHit(rockRectCopy) }
                     
-                    if (hitZone.contains(x, y) && isSwingingDown && startedFromAbove) {
-                        rock.hits++
-                        isHit = true
+                    if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 0, 0, 1.2f + (rock.hits * 0.1f)) // Pitch goes up
+                    
+                    // Shake the rock heavily to feel like a solid mass
+                    rock.shakeAmount = 25f
+                    
+                    if (rock.hits >= 5) {
+                        rock.isDestroyed = true
+                        isBreak = true
                         
-                        // Trigger visuals on UI thread
-                        val rockRectCopy = RectF(rock.rect)
-                        runOnUiThread { binding.overlayView.onRockHit(rockRectCopy) }
+                        runOnUiThread { binding.overlayView.onRockDestroyed(rockRectCopy) }
                         
-                        if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 0, 0, 1.2f + (rock.hits * 0.1f)) // Pitch goes up
+                        // Increase score
+                        if (playerId == 1) p1DestroyedCount++ else p2DestroyedCount++
                         
-                        // Shake the rock heavily to feel like a solid mass
-                        rock.shakeAmount = 25f
+                        if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 1, 0, 0.8f) 
                         
-                        if (rock.hits >= 4) {
-                            rock.isDestroyed = true
-                            isBreak = true
-                            
-                            runOnUiThread { binding.overlayView.onRockDestroyed(rockRectCopy) }
-                            
-                            // Increase score
-                            if (playerId == 1) p1DestroyedCount++ else p2DestroyedCount++
-                            
-                            if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 1, 0, 0.8f) 
-                            
-                            // Schedule removal (do NOT respawn in this mode)
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                rocks.remove(rock)
-                            }, 100)
-                            
-                            checkWinner()
-                            if (winner != null && soundIdVictory != 0) {
-                                soundPool.play(soundIdVictory, 1f, 1f, 2, 0, 1f)
-                            }
+                        // Schedule removal (do NOT respawn in this mode)
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            rocks.remove(rock)
+                        }, 100)
+                        
+                        checkWinner()
+                        if (winner != null && soundIdVictory != 0) {
+                            soundPool.play(soundIdVictory, 1f, 1f, 2, 0, 1f)
                         }
-                        break // Only hit one rock per frame
                     }
+                    break // Only hit one rock per frame
                 }
             }
         }
@@ -292,19 +381,40 @@ class KesatriaPCDActivity : BasePoseActivity() {
         if (winner != null) {
             runOnUiThread {
                 binding.gameOverLayout.visibility = View.VISIBLE
-                binding.winnerText.text = "$winner WINS!"
+                binding.winnerText.visibility = View.GONE
+                    
+                // Efek Visual Kemenangan: Kilatan Emas di Background
+                val goldColor = Color.parseColor("#FFD700")
+                val handler = Handler(Looper.getMainLooper())
+                var toggle = false
+                val flashRunnable = object : Runnable {
+                    var count = 0
+                    override fun run() {
+                        if (count > 10) {
+                            binding.overlayView.backgroundTintList = null
+                            return
+                        }
+                        binding.overlayView.backgroundTintList = if (toggle) null else android.content.res.ColorStateList.valueOf(goldColor)
+                        toggle = !toggle
+                        count++
+                        handler.postDelayed(this, 150)
+                    }
+                }
+                handler.post(flashRunnable)
                 
                 binding.btnRetry.setOnClickListener {
+                    SoundManager.playClick()
                     p1DestroyedCount = 0
                     p2DestroyedCount = 0
                     winner = null
                     isGameStarted = false
                     binding.gameOverLayout.visibility = View.GONE
                     initRocks(binding.overlayView.width, binding.overlayView.height)
-                    startCountdown() // Restart the countdown without the tutorial video
+                    startWaitingForPlayers() // Restart waiting phase instead of straight countdown
                 }
                 
                 binding.btnMainMenu.setOnClickListener {
+                    SoundManager.playClick()
                     finish() // Close activity, returns to menu
                 }
             }
@@ -343,8 +453,8 @@ class KesatriaPCDActivity : BasePoseActivity() {
         // Show tooltip for player 1 area
         if (tooltipManager.shouldShowTooltip("player1_area")) {
             // Position at left side of overlay, vertically centered
-            val pointX = (binding.overlayView.width / 4).toInt() // 1/4 of width (left side)
-            val pointY = (binding.overlayView.height / 2).toInt() // Vertically centered
+            val pointX = binding.overlayView.width / 4 // 1/4 of width (left side)
+            val pointY = binding.overlayView.height / 2 // Vertically centered
             
             TooltipHelper.showAtPoint(
                 this,
@@ -359,8 +469,8 @@ class KesatriaPCDActivity : BasePoseActivity() {
         // Show tooltip for player 2 area
         if (tooltipManager.shouldShowTooltip("player2_area")) {
             // Position at right side of overlay, vertically centered
-            val pointX = (binding.overlayView.width * 3 / 4).toInt() // 3/4 of width (right side)
-            val pointY = (binding.overlayView.height / 2).toInt() // Vertically centered
+            val pointX = binding.overlayView.width * 3 / 4 // 3/4 of width (right side)
+            val pointY = binding.overlayView.height / 2 // Vertically centered
             
             TooltipHelper.showAtPoint(
                 this,
@@ -371,5 +481,11 @@ class KesatriaPCDActivity : BasePoseActivity() {
             )
             tooltipManager.markTooltipAsSeen("player2_area")
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Revert BGM to default when leaving
+        (application as KinetiqFunApp).changeMusic(0)
     }
 }

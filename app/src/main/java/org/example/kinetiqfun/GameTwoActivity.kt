@@ -1,24 +1,22 @@
 package org.example.kinetiqfun
 
-import android.app.AlertDialog
+import android.content.Context
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
-import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewTreeObserver
-import android.view.animation.AnimationUtils
-import android.widget.Button
-import android.widget.EditText
-import android.widget.FrameLayout
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
-import kotlin.math.abs
-import org.example.kinetiqfun.TooltipHelper
-import org.example.kinetiqfun.TooltipManager
 
 class GameTwoActivity : BasePoseActivity() {
 
@@ -27,149 +25,266 @@ class GameTwoActivity : BasePoseActivity() {
     private var isGameStarted = false
     private var winner: String? = null
     
-    private var scoreP1 = 0
-    private var scoreP2 = 0
-    
-    private val targetPoses = listOf("T-POSE", "TOUCH TOES", "HANDS UP")
-    private var currentPoseIdx = 0
-    private var poseStartTime = System.currentTimeMillis()
-    
     private var p1Progress = 0f
     private var p2Progress = 0f
+    
+    // Hip Tracking
+    private var lastP1HipX = 0f
+    private var lastP2HipX = 0f
+    private var p1Direction = 0 // 1 for right, -1 for left
+    private var p2Direction = 0
+
+    // Waiting logic
+    private var isWaitingForPlayers = false
+    private var lastP1DetectTime = 0L
+    private var lastP2DetectTime = 0L
+    
+    // Stability sensor
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+    private var isDeviceStable = false
+    private var lastAccelX = 0f
+    private var lastAccelY = 0f
+    private var lastAccelZ = 0f
+    private var stableCount = 0
+
+    private val sensorEventListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+            
+            val delta = Math.abs(x - lastAccelX) + Math.abs(y - lastAccelY) + Math.abs(z - lastAccelZ)
+            
+            // Check if device is laying flat (less strict, allow up to 8.5)
+            val isNotLayingFlat = Math.abs(z) < 8.5f
+            
+            if (delta < 1.0f && isNotLayingFlat) {
+                stableCount++
+                if (stableCount > 10) isDeviceStable = true
+            } else {
+                stableCount = 0
+                isDeviceStable = false
+            }
+            
+            lastAccelX = x
+            lastAccelY = y
+            lastAccelZ = z
+        }
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        isGameStarted = true
+        isGameStarted = false // Wait for tutorial
         
-        // Show tooltips for first-time players
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        
+        (application as KinetiqFunApp).changeMusic(R.raw.kicau_mania_background_music)
+        
+        val videoPath = "android.resource://$packageName/${R.raw.tutorial_geol_kicau_mania}"
+        binding.tutorialVideoView.setVideoURI(Uri.parse(videoPath))
+        binding.tutorialVideoView.setZOrderMediaOverlay(true)
+        binding.tutorialVideoContainer.visibility = View.VISIBLE
+        binding.tutorialVideoView.start()
+        
+        var tutorialTimer: CountDownTimer? = null
+        
+        binding.tutorialVideoView.setOnPreparedListener { mp ->
+            val durationMs = mp.duration.toLong()
+            tutorialTimer = object : CountDownTimer(durationMs, 1000) {
+                override fun onTick(millisUntilFinished: Long) {
+                    val secondsLeft = millisUntilFinished / 1000
+                    binding.tutorialCountdownText.text = String.format("%02d", secondsLeft)
+                }
+                override fun onFinish() {
+                    binding.tutorialCountdownText.text = "00"
+                }
+            }.start()
+        }
+        
+        binding.tutorialVideoView.setOnCompletionListener {
+            tutorialTimer?.cancel()
+            binding.tutorialVideoContainer.visibility = View.GONE
+            startWaitingForPlayers()
+        }
+        
+        binding.tutorialVideoView.setOnErrorListener { _, _, _ ->
+            tutorialTimer?.cancel()
+            binding.tutorialVideoContainer.visibility = View.GONE
+            startWaitingForPlayers()
+            true
+        }
+        
+        binding.overlayView.currentGameMode = OverlayView.GameMode.BALAP_GEOL
+        binding.overlayView.updateBalapGeolState(0f, 0f, nameP1, nameP2, null)
+        
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 binding.root.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                showInitialTooltips()
             }
         })
     }
 
+    override fun onResume() {
+        super.onResume()
+        accelerometer?.let {
+            sensorManager.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
 
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(sensorEventListener)
+    }
+
+    private fun startWaitingForPlayers() {
+        isWaitingForPlayers = true
+        binding.waitingLayout.visibility = View.VISIBLE
+        
+        val handler = Handler(Looper.getMainLooper())
+        val checkRunnable = object : Runnable {
+            override fun run() {
+                if (!isWaitingForPlayers) return
+                
+                val now = System.currentTimeMillis()
+                val p1Detected = (now - lastP1DetectTime) < 1500
+                val p2Detected = (now - lastP2DetectTime) < 1500
+                
+                if (p1Detected && p2Detected && isDeviceStable) {
+                    isWaitingForPlayers = false
+                    binding.waitingLayout.visibility = View.GONE
+                    startCountdown()
+                } else {
+                    handler.postDelayed(this, 500)
+                }
+            }
+        }
+        handler.post(checkRunnable)
+    }
+
+    private fun startCountdown() {
+        binding.countdownText.visibility = View.VISIBLE
+        var toneGen: ToneGenerator? = null
+        try {
+            toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        object : CountDownTimer(4000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val seconds = (millisUntilFinished / 1000)
+                if (seconds > 0) {
+                    binding.countdownText.text = seconds.toString()
+                    try {
+                        toneGen?.startTone(ToneGenerator.TONE_CDMA_PIP, 150)
+                    } catch (e: Exception) {}
+                } else {
+                    binding.countdownText.text = "GO!"
+                    try {
+                        toneGen?.startTone(ToneGenerator.TONE_CDMA_ABBR_INTERCEPT, 300)
+                    } catch (e: Exception) {}
+                }
+            }
+            
+            override fun onFinish() {
+                binding.countdownText.visibility = View.GONE
+                isGameStarted = true
+                toneGen?.release()
+            }
+        }.start()
+    }
 
     override fun onPoseDetected(playerId: Int, pose: Pose, pXOffset: Float, imgWidth: Int, imgHeight: Int) {
+        // Update detection time early so WAITING doesn't get stuck on poor hip likelihood
+        if (playerId == 1) lastP1DetectTime = System.currentTimeMillis()
+        if (playerId == 2) lastP2DetectTime = System.currentTimeMillis()
+
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+
+        if (leftHip == null || rightHip == null || leftHip.inFrameLikelihood < 0.5f || rightHip.inFrameLikelihood < 0.5f) return
+
+        val hipX = (leftHip.position.x + rightHip.position.x) / 2f
+        var isGeol = false
+        
+        // Use the playerId passed from BasePoseActivity
+        val isPlayer1 = (playerId == 1)
+
         if (!isGameStarted || winner != null) return
 
-        val isMatch = checkPoseMatch(pose, targetPoses[currentPoseIdx])
-        
-        if (playerId == 1) {
-            p1Progress = if (isMatch) (p1Progress + 0.05f).coerceAtMost(1f) else (p1Progress - 0.02f).coerceAtLeast(0f)
-            if (p1Progress >= 1f) {
-                scoreP1++
-                if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 0, 0, 1.2f)
-                resetRound()
-                if (scoreP1 >= 5) {
+        if (isPlayer1) {
+            if (lastP1HipX != 0f) {
+                val delta = hipX - lastP1HipX
+                // Threshold goyangan agar harus selebar mungkin (30f)
+                if (Math.abs(delta) > 30f) { 
+                    val newDir = if (delta > 0) 1 else -1
+                    if (p1Direction != 0 && p1Direction != newDir) {
+                        isGeol = true
+                    }
+                    p1Direction = newDir
+                }
+            }
+            lastP1HipX = hipX
+            
+            if (isGeol) {
+                p1Progress = (p1Progress + 0.015f).coerceAtMost(1f) // Dorongan keatas sedikit demi sedikit
+                if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 0, 0, 1.0f + (p1Progress * 0.5f))
+                if (p1Progress >= 1f && winner == null) {
                     winner = nameP1
-                    if (soundIdVictory != 0) soundPool.play(soundIdVictory, 1f, 1f, 2, 0, 1f)
+                    showWinner()
                 }
             }
         } else {
-            p2Progress = if (isMatch) (p2Progress + 0.05f).coerceAtMost(1f) else (p2Progress - 0.02f).coerceAtLeast(0f)
-            if (p2Progress >= 1f) {
-                scoreP2++
-                if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 0, 0, 1.2f)
-                resetRound()
-                if (scoreP2 >= 5) {
+            if (lastP2HipX != 0f) {
+                val delta = hipX - lastP2HipX
+                if (Math.abs(delta) > 30f) { 
+                    val newDir = if (delta > 0) 1 else -1
+                    if (p2Direction != 0 && p2Direction != newDir) {
+                        isGeol = true
+                    }
+                    p2Direction = newDir
+                }
+            }
+            lastP2HipX = hipX
+            
+            if (isGeol) {
+                p2Progress = (p2Progress + 0.015f).coerceAtMost(1f)
+                if (p2Progress >= 1f && winner == null) {
                     winner = nameP2
-                    if (soundIdVictory != 0) soundPool.play(soundIdVictory, 1f, 1f, 2, 0, 1f)
+                    showWinner()
                 }
             }
         }
 
         runOnUiThread {
-            binding.overlayView.updateDanceState(targetPoses[currentPoseIdx], p1Progress, p2Progress, scoreP1, scoreP2, nameP1, nameP2, winner)
-        }
-        
-        // Enhanced visual feedback for pose matching
-        enhanceVisualFeedback(isMatch, playerId)
-    }
-
-    private fun resetRound() {
-        p1Progress = 0f
-        p2Progress = 0f
-        currentPoseIdx = (currentPoseIdx + 1) % targetPoses.size
-    }
-
-    private fun checkPoseMatch(pose: Pose, target: String): Boolean {
-        val ls = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: return false
-        val rs = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER) ?: return false
-        val lw = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST) ?: return false
-        val rw = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST) ?: return false
-        val lk = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE) ?: return false
-        val rk = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE) ?: return false
-
-        return when (target) {
-            "T-POSE" -> {
-                abs(lw.position.y - ls.position.y) < 100 && abs(rw.position.y - rs.position.y) < 100
-            }
-            "TOUCH TOES" -> {
-                lw.position.y > lk.position.y && rw.position.y > rk.position.y
-            }
-            "HANDS UP" -> {
-                lw.position.y < ls.position.y - 150 && rw.position.y < rs.position.y - 150
-            }
-            else -> false
+            binding.overlayView.updateBalapGeolState(p1Progress, p2Progress, nameP1, nameP2, winner)
         }
     }
     
-    // Enhanced visual feedback for pose matching
-    private fun enhanceVisualFeedback(isMatch: Boolean, playerId: Int) {
-        val handler = Handler(Looper.getMainLooper())
-        val overlay = binding.overlayView
-        
-        if (isMatch) {
-            // Flash green when pose matches
-            overlay.post {
-                overlay.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.GREEN)
-                handler.postDelayed({
-                    overlay.backgroundTintList = null
-                }, 200)
+    private fun showWinner() {
+        runOnUiThread {
+            binding.gameOverLayout.visibility = View.VISIBLE
+            binding.winnerText.visibility = View.GONE
+            
+            binding.btnRetry.setOnClickListener {
+                p1Progress = 0f
+                p2Progress = 0f
+                winner = null
+                lastP1HipX = 0f
+                lastP2HipX = 0f
+                binding.gameOverLayout.visibility = View.GONE
+                
+                isGameStarted = false
+                startWaitingForPlayers()
             }
-        } else {
-            // Shake slightly when pose doesn't match
-            val shakeAnim = AnimationUtils.loadAnimation(this, R.anim.shake)
-            overlay.startAnimation(shakeAnim)
-        }
-    }
-    
-    private fun showInitialTooltips() {
-        val tooltipManager = TooltipManager(this)
-        
-        // Show tooltip for target pose indicator
-        if (tooltipManager.shouldShowTooltip("target_pose")) {
-            // Position at top center of overlay
-            val pointX = (binding.overlayView.width / 2).toInt() // Center horizontally
-            val pointY = (binding.overlayView.height / 6).toInt() // Top area
             
-            TooltipHelper.showAtPoint(
-                this,
-                binding.overlayView,
-                getString(R.string.tooltip_target_pose),
-                pointX,
-                pointY
-            )
-            tooltipManager.markTooltipAsSeen("target_pose")
-        }
-        
-        // Show tooltip for progress bars
-        if (tooltipManager.shouldShowTooltip("progress_bars")) {
-            // Position at middle of overlay
-            val pointX = (binding.overlayView.width / 2).toInt() // Center horizontally
-            val pointY = (binding.overlayView.height / 2).toInt() // Vertically centered
-            
-            TooltipHelper.showAtPoint(
-                this,
-                binding.overlayView,
-                getString(R.string.tooltip_progress_bars),
-                pointX,
-                pointY
-            )
-            tooltipManager.markTooltipAsSeen("progress_bars")
+            binding.btnMainMenu.setOnClickListener {
+                SoundManager.playClick()
+                finish()
+            }
         }
     }
 }

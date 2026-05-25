@@ -81,6 +81,7 @@ class RainbowTransitionView(context: android.content.Context) : View(context) {
 
 object RainbowTransition {
     fun navigate(activity: Activity, intent: Intent, finishCurrent: Boolean = false) {
+        SoundManager.playTransition()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         val view = RainbowTransitionView(activity)
         view.mode = 0
@@ -107,6 +108,7 @@ object RainbowTransition {
     }
 
     fun reveal(activity: Activity) {
+        SoundManager.playTransition()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         
         // Hapus semua RainbowTransitionView lama agar tidak menyangkut saat kembali (back)

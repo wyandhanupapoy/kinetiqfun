@@ -6,19 +6,29 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
+import android.app.AlertDialog
 import android.media.AudioAttributes
 import android.media.SoundPool
+import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
+import com.google.mlkit.vision.segmentation.Segmentation
+import com.google.mlkit.vision.segmentation.Segmenter
+import com.google.mlkit.vision.segmentation.SegmentationMask
+import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import org.example.kinetiqfun.databinding.ActivityMainBinding
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -40,6 +50,17 @@ abstract class BasePoseActivity : AppCompatActivity() {
             .build()
     )
 
+    private val segmenter1 = Segmentation.getClient(
+        SelfieSegmenterOptions.Builder()
+            .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
+            .build()
+    )
+    private val segmenter2 = Segmentation.getClient(
+        SelfieSegmenterOptions.Builder()
+            .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
+            .build()
+    )
+
     protected lateinit var soundPool: SoundPool
     protected var soundIdAction: Int = 0
     protected var soundIdVictory: Int = 0
@@ -52,8 +73,15 @@ abstract class BasePoseActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        hideSystemUI()
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_GAME)
@@ -65,7 +93,7 @@ abstract class BasePoseActivity : AppCompatActivity() {
             .build()
         
         // Load sounds from res/raw safely to avoid build errors if they don't exist yet
-        val actionId = resources.getIdentifier("action", "raw", packageName)
+        val actionId = resources.getIdentifier("box_crack", "raw", packageName)
         if (actionId != 0) soundIdAction = soundPool.load(this, actionId, 1)
 
         val victoryId = resources.getIdentifier("win_sfx", "raw", packageName)
@@ -84,6 +112,32 @@ abstract class BasePoseActivity : AppCompatActivity() {
         }
 
         cameraExecutor = Executors.newFixedThreadPool(2)
+        
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                AlertDialog.Builder(this@BasePoseActivity)
+                    .setTitle("Quit Game")
+                    .setMessage("Are you sure you want to quit this game?")
+                    .setPositiveButton("Yes") { _, _ ->
+                        (application as KinetiqFunApp).changeMusic(R.raw.background_music)
+                        finish()
+                    }
+                    .setNegativeButton("No", null)
+                    .show()
+            }
+        })
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemUI()
+    }
+
+    private fun hideSystemUI() {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     private fun startCamera() {
@@ -151,33 +205,26 @@ abstract class BasePoseActivity : AppCompatActivity() {
         val p2Input = if (isFrontCamera) leftImage else rightImage
         val p2Offset = if (isFrontCamera) 0f else halfWidth.toFloat()
 
-        val task1 = poseDetector1.process(p1Input)
-            .addOnSuccessListener { pose ->
-                if (pose.allPoseLandmarks.size > 15) {
-                    binding.overlayView.setResults(1, pose, width, height, isFrontCamera, p1Offset)
-                    onPoseDetected(1, pose, p1Offset, width, height)
-                } else {
-                    binding.overlayView.setResults(1, null, width, height, isFrontCamera, p1Offset)
-                }
-            }
-            .addOnFailureListener {
-                binding.overlayView.setResults(1, null, width, height, isFrontCamera, p1Offset)
-            }
+        var p1Pose: Pose? = null
+        var p1Mask: SegmentationMask? = null
+        var p2Pose: Pose? = null
+        var p2Mask: SegmentationMask? = null
 
-        val task2 = poseDetector2.process(p2Input)
-            .addOnSuccessListener { pose ->
-                if (pose.allPoseLandmarks.size > 15) {
-                    binding.overlayView.setResults(2, pose, width, height, isFrontCamera, p2Offset)
-                    onPoseDetected(2, pose, p2Offset, width, height)
-                } else {
-                    binding.overlayView.setResults(2, null, width, height, isFrontCamera, p2Offset)
-                }
-            }
-            .addOnFailureListener {
-                binding.overlayView.setResults(2, null, width, height, isFrontCamera, p2Offset)
-            }
+        val task1Pose = poseDetector1.process(p1Input).addOnSuccessListener { p1Pose = it }
+        val task1Mask = segmenter1.process(p1Input).addOnSuccessListener { p1Mask = it }
+        val task2Pose = poseDetector2.process(p2Input).addOnSuccessListener { p2Pose = it }
+        val task2Mask = segmenter2.process(p2Input).addOnSuccessListener { p2Mask = it }
 
-        Tasks.whenAllComplete(task1, task2).addOnCompleteListener {
+        Tasks.whenAllComplete(task1Pose, task1Mask, task2Pose, task2Mask).addOnCompleteListener {
+            if (p1Pose != null) {
+                binding.overlayView.setResults(1, p1Pose, p1Mask, width, height, isFrontCamera, p1Offset)
+                onPoseDetected(1, p1Pose!!, p1Offset, width, height)
+            }
+            if (p2Pose != null) {
+                binding.overlayView.setResults(2, p2Pose, p2Mask, width, height, isFrontCamera, p2Offset)
+                onPoseDetected(2, p2Pose!!, p2Offset, width, height)
+            }
+            
             imageProxy.close()
             leftBitmap.recycle()
             rightBitmap.recycle()
@@ -205,6 +252,8 @@ abstract class BasePoseActivity : AppCompatActivity() {
         cameraExecutor.shutdown()
         poseDetector1.close()
         poseDetector2.close()
+        segmenter1.close()
+        segmenter2.close()
         soundPool.release()
     }
 

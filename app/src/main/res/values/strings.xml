@@ -37,4 +37,5 @@
     <string name="tooltip_health_bars">Reduce opponent health to zero</string>
     <string name="tooltip_projectiles">Punch forward to shoot projectiles</string>
     <string name="tooltip_arrow">Tooltip Arrow</string>
+    <string name="winner_text_format">%s WINS!</string>
 </resources>

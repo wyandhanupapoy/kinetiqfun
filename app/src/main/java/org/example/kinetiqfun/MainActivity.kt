@@ -4,8 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +15,9 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
@@ -43,8 +48,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        hideSystemUI()
 
         if (allPermissionsGranted()) {
             startCamera()
@@ -56,6 +68,18 @@ class MainActivity : AppCompatActivity() {
 
         // Gunakan thread pool yang cukup untuk memproses dua deteksi secara paralel
         cameraExecutor = Executors.newFixedThreadPool(2)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemUI()
+    }
+
+    private fun hideSystemUI() {
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     private fun startCamera() {
@@ -126,18 +150,20 @@ class MainActivity : AppCompatActivity() {
         val task1 = poseDetector1.process(p1Input)
             .addOnSuccessListener { pose ->
                 if (pose.allPoseLandmarks.size > 15) {
-                    binding.overlayView.setResults(1, pose, width, height, isFrontCamera, p1Offset)
+                    binding.overlayView.setResults(1, pose, null, width, height, isFrontCamera, p1Offset)
+                    onPoseDetected(1, pose, p1Offset, width, height)
                 } else {
-                    binding.overlayView.setResults(1, null, width, height, isFrontCamera, p1Offset)
+                    binding.overlayView.setResults(1, null, null, width, height, isFrontCamera, p1Offset)
                 }
             }
 
         val task2 = poseDetector2.process(p2Input)
             .addOnSuccessListener { pose ->
                 if (pose.allPoseLandmarks.size > 15) {
-                    binding.overlayView.setResults(2, pose, width, height, isFrontCamera, p2Offset)
+                    binding.overlayView.setResults(2, pose, null, width, height, isFrontCamera, p2Offset)
+                    onPoseDetected(2, pose, p2Offset, width, height)
                 } else {
-                    binding.overlayView.setResults(2, null, width, height, isFrontCamera, p2Offset)
+                    binding.overlayView.setResults(2, null, null, width, height, isFrontCamera, p2Offset)
                 }
             }
 
@@ -148,6 +174,10 @@ class MainActivity : AppCompatActivity() {
             rightBitmap.recycle()
             rotatedBitmap.recycle()
         }
+    }
+
+    private fun onPoseDetected(playerId: Int, pose: Pose, pXOffset: Float, imgWidth: Int, imgHeight: Int) {
+        // Main activity doesn't need specific pose logic for now
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {

@@ -9,7 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 class GameAdapter(
     private val games: List<GameItem>,
-    private val onClick: (GameItem) -> Unit
+    private val onClick: (GameItem, Int) -> Unit
 ) : RecyclerView.Adapter<GameAdapter.GameViewHolder>() {
 
     class GameViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -35,7 +35,7 @@ class GameAdapter(
             holder.imgScreenshot.setImageResource(android.R.color.black)
         }
 
-        holder.itemView.setOnClickListener { onClick(game) }
+        holder.itemView.setOnClickListener { onClick(game, position) }
     }
 
     override fun getItemCount() = games.size
