@@ -194,7 +194,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 val seconds = (millisUntilFinished / 1000) + 1
-                binding.countdownText.text = seconds.toString()
+                animateCountdownText(binding.countdownText, seconds.toString())
                 try {
                     toneGen?.startTone(ToneGenerator.TONE_CDMA_PIP, 150)
                 } catch (e: Exception) {}
@@ -204,7 +204,12 @@ class KesatriaPCDActivity : BasePoseActivity() {
                 try {
                     toneGen?.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500)
                 } catch (e: Exception) {}
-                binding.countdownText.visibility = View.INVISIBLE
+                
+                animateCountdownText(binding.countdownText, "GO!")
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    binding.countdownText.visibility = View.INVISIBLE
+                }, 1000)
+                
                 isGameStarted = true
                 
                 // Release on a background thread to prevent blocking the UI thread (lag spike)

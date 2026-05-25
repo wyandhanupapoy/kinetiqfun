@@ -177,12 +177,12 @@ class GameTwoActivity : BasePoseActivity() {
             override fun onTick(millisUntilFinished: Long) {
                 val seconds = (millisUntilFinished / 1000)
                 if (seconds > 0) {
-                    binding.countdownText.text = seconds.toString()
+                    animateCountdownText(binding.countdownText, seconds.toString())
                     try {
                         toneGen?.startTone(ToneGenerator.TONE_CDMA_PIP, 150)
                     } catch (e: Exception) {}
                 } else {
-                    binding.countdownText.text = "GO!"
+                    animateCountdownText(binding.countdownText, "GO!")
                     try {
                         toneGen?.startTone(ToneGenerator.TONE_CDMA_ABBR_INTERCEPT, 300)
                     } catch (e: Exception) {}

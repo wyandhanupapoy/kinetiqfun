@@ -255,10 +255,16 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     private fun spawnVictoryParticles() {
         for (i in 0 until 100) {
-            val vx = (random.nextFloat() - 0.5f) * 20f
-            val vy = -random.nextFloat() * 30f
+            // Left Cannon
+            val vx = (random.nextFloat() - 0.2f) * 40f
+            val vy = -(20f + random.nextFloat() * 40f)
             val color = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256))
-            particles.add(Particle(width / 2f, height / 2f, vx, vy, 10f + random.nextFloat() * 20f, 255, color, 60 + random.nextInt(40)))
+            particles.add(Particle(width * 0.1f, height.toFloat(), vx, vy, 15f + random.nextFloat() * 20f, 255, color, 80 + random.nextInt(40)))
+            
+            // Right Cannon
+            val vx2 = (random.nextFloat() - 0.8f) * 40f
+            val color2 = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256))
+            particles.add(Particle(width * 0.9f, height.toFloat(), vx2, vy, 15f + random.nextFloat() * 20f, 255, color2, 80 + random.nextInt(40)))
         }
     }
 

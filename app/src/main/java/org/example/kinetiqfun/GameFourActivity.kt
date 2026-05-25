@@ -160,7 +160,7 @@ class GameFourActivity : BasePoseActivity() {
         
         object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                txtTimer.text = (millisUntilFinished / 1000 + 1).toString()
+                animateCountdownText(txtTimer, (millisUntilFinished / 1000 + 1).toString())
             }
             override fun onFinish() {
                 txtTimer.visibility = View.GONE
@@ -176,6 +176,18 @@ class GameFourActivity : BasePoseActivity() {
         if (captureSfxId != 0) {
             soundPool.play(captureSfxId, 1f, 1f, 0, 0, 1f)
         }
+        
+        // Flash effect
+        val flashView = View(this).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+            alpha = 1f
+            elevation = 100f
+        }
+        (binding.root as ViewGroup).addView(flashView)
+        flashView.animate().alpha(0f).setDuration(400).withEndAction {
+            (binding.root as ViewGroup).removeView(flashView)
+        }.start()
         
         // 1. Take Snapshot from camera ONLY (no skeleton)
         val fullBitmap = binding.previewView.bitmap

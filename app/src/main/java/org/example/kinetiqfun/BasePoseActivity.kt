@@ -339,4 +339,21 @@ abstract class BasePoseActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
     }
+
+    protected fun animateCountdownText(textView: android.widget.TextView, text: String) {
+        textView.text = text
+        textView.scaleX = 0.5f
+        textView.scaleY = 0.5f
+        textView.alpha = 0f
+        textView.visibility = android.view.View.VISIBLE
+        textView.animate()
+            .scaleX(1.5f)
+            .scaleY(1.5f)
+            .alpha(1f)
+            .setDuration(400)
+            .withEndAction {
+                textView.animate().scaleX(1f).scaleY(1f).setDuration(400).start()
+            }
+            .start()
+    }
 }
