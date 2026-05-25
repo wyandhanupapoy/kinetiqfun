@@ -38,4 +38,17 @@
     <string name="tooltip_projectiles">Punch forward to shoot projectiles</string>
     <string name="tooltip_arrow">Tooltip Arrow</string>
     <string name="winner_text_format">%s WINS!</string>
+    <string name="quit_game">QUIT GAME</string>
+    <string name="quit_confirm">Are you sure you want to quit this game?</string>
+    <string name="yes">YES</string>
+    <string name="no">NO</string>
+    <string name="finish">FINISH</string>
+    <string name="winner_title">WINNER!</string>
+    <string name="waiting">WAITING...</string>
+    <string name="waiting_instruction">Please prop the device upright on a stable surface.\nMake sure 2 players are standing in the frame.</string>
+    <string name="calibration_title">CALIBRATION</string>
+    <string name="calibration_instruction">Align your bodies with the silhouettes</string>
+    <string name="game_kesatria">Kesatria PCD</string>
+    <string name="game_geol">Geol Kicau Mania</string>
+    <string name="game_tiru_gaya">Tiru Gaya</string>
 </resources>

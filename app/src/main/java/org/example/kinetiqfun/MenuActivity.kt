@@ -49,9 +49,9 @@ class MenuActivity : AppCompatActivity() {
         val rvGames = findViewById<RecyclerView>(R.id.rvGames)
         
         val games = listOf(
-            GameItem(1, "Kesatria PCD", null),
-            GameItem(2, "Geol Kicau Mania", null),
-            GameItem(3, "Tiru Gaya", null)
+            GameItem(1, getString(R.string.game_kesatria), null),
+            GameItem(2, getString(R.string.game_geol), null),
+            GameItem(3, getString(R.string.game_tiru_gaya), null)
         )
 
         val adapter = GameAdapter(games) { game, position ->

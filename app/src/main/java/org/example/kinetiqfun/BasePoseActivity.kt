@@ -22,9 +22,12 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.gms.tasks.Tasks
+import androidx.camera.mlkit.vision.MlKitAnalyzer
+import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
+import com.google.mlkit.vision.pose.PoseDetector
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
 import com.google.mlkit.vision.segmentation.Segmentation
 import com.google.mlkit.vision.segmentation.Segmenter
@@ -134,7 +137,7 @@ abstract class BasePoseActivity : AppCompatActivity() {
                 val typeface = androidx.core.content.res.ResourcesCompat.getFont(this@BasePoseActivity, R.font.game_font)
 
                 val titleText = android.widget.TextView(this@BasePoseActivity).apply {
-                    text = "QUIT GAME"
+                    text = getString(R.string.quit_game)
                     setTextColor(Color.parseColor("#FF4444"))
                     textSize = 48f
                     setTypeface(typeface)
@@ -143,7 +146,7 @@ abstract class BasePoseActivity : AppCompatActivity() {
                 }
                 
                 val msgText = android.widget.TextView(this@BasePoseActivity).apply {
-                    text = "Are you sure you want to quit this game?"
+                    text = getString(R.string.quit_confirm)
                     setTextColor(Color.WHITE)
                     textSize = 24f
                     setTypeface(typeface)
@@ -157,7 +160,7 @@ abstract class BasePoseActivity : AppCompatActivity() {
                 }
 
                 val btnNo = android.widget.Button(this@BasePoseActivity).apply {
-                    text = "NO"
+                    text = getString(R.string.no)
                     setTextColor(Color.WHITE)
                     setBackgroundColor(Color.DKGRAY)
                     textSize = 24f
@@ -170,7 +173,7 @@ abstract class BasePoseActivity : AppCompatActivity() {
                 }
 
                 val btnYes = android.widget.Button(this@BasePoseActivity).apply {
-                    text = "YES"
+                    text = getString(R.string.yes)
                     setTextColor(Color.WHITE)
                     setBackgroundColor(Color.parseColor("#FF4444"))
                     textSize = 24f
@@ -235,16 +238,16 @@ abstract class BasePoseActivity : AppCompatActivity() {
                 .build()
                 .also { it.setSurfaceProvider(binding.previewView.surfaceProvider) }
 
+            // Optimized Analyzer using manual ImageAnalysis but with direct InputImage.fromMediaImage
+            // to avoid extra Bitmap allocations while maintaining control over the flow.
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setTargetAspectRatio(aspectRatio)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build()
-                .also {
-                    it.setAnalyzer(cameraExecutor) { imageProxy ->
-                        processMultiplayer(imageProxy)
-                    }
-                }
+
+            imageAnalyzer.setAnalyzer(cameraExecutor) { imageProxy ->
+                processMultiplayer(imageProxy)
+            }
 
             try {
                 cameraProvider.unbindAll()
@@ -257,56 +260,41 @@ abstract class BasePoseActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalGetImage::class)
     private fun processMultiplayer(imageProxy: ImageProxy) {
-        val bitmap = imageProxy.toBitmap()
+        val mediaImage = imageProxy.image ?: run { imageProxy.close(); return }
         val rotation = imageProxy.imageInfo.rotationDegrees
         
-        val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-        val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        // Use InputImage.fromMediaImage directly - NO BITMAP CONVERSION HERE
+        val fullInputImage = InputImage.fromMediaImage(mediaImage, rotation)
         
-        val width = rotatedBitmap.width
-        val height = rotatedBitmap.height
-        val halfWidth = width / 2
-
-        // Potongan Kiri Sensor
-        val leftBitmap = Bitmap.createBitmap(rotatedBitmap, 0, 0, halfWidth, height)
-        val leftImage = InputImage.fromBitmap(leftBitmap, 0)
-
-        // Potongan Kanan Sensor
-        val rightBitmap = Bitmap.createBitmap(rotatedBitmap, halfWidth, 0, halfWidth, height)
-        val rightImage = InputImage.fromBitmap(rightBitmap, 0)
-
-        // Mapping agar Player 1 selalu di KIRI LAYAR dan Player 2 di KANAN LAYAR
-        // Kamera Depan (Mirrored): Sensor Kanan -> Layar Kiri (P1), Sensor Kiri -> Layar Kanan (P2)
-        val p1Input = if (isFrontCamera) rightImage else leftImage
-        val p1Offset = if (isFrontCamera) halfWidth.toFloat() else 0f
+        val width = if (rotation == 90 || rotation == 270) imageProxy.height else imageProxy.width
+        val height = if (rotation == 90 || rotation == 270) imageProxy.width else imageProxy.height
         
-        val p2Input = if (isFrontCamera) leftImage else rightImage
-        val p2Offset = if (isFrontCamera) 0f else halfWidth.toFloat()
+        // Current logic splits screen in two for 2 players.
+        // To avoid Bitmaps, we pass the full image to both detectors.
+        // We will filter landmarks in OverlayView based on their X coordinate.
 
         var p1Pose: Pose? = null
         var p1Mask: SegmentationMask? = null
         var p2Pose: Pose? = null
         var p2Mask: SegmentationMask? = null
 
-        val task1Pose = poseDetector1.process(p1Input).addOnSuccessListener { p1Pose = it }
-        val task1Mask = segmenter1.process(p1Input).addOnSuccessListener { p1Mask = it }
-        val task2Pose = poseDetector2.process(p2Input).addOnSuccessListener { p2Pose = it }
-        val task2Mask = segmenter2.process(p2Input).addOnSuccessListener { p2Mask = it }
+        val task1Pose = poseDetector1.process(fullInputImage).addOnSuccessListener { p1Pose = it }
+        val task1Mask = segmenter1.process(fullInputImage).addOnSuccessListener { p1Mask = it }
+        val task2Pose = poseDetector2.process(fullInputImage).addOnSuccessListener { p2Pose = it }
+        val task2Mask = segmenter2.process(fullInputImage).addOnSuccessListener { p2Mask = it }
 
         Tasks.whenAllComplete(task1Pose, task1Mask, task2Pose, task2Mask).addOnCompleteListener {
             if (p1Pose != null) {
-                binding.overlayView.setResults(1, p1Pose, p1Mask, width, height, isFrontCamera, p1Offset)
-                onPoseDetected(1, p1Pose!!, p1Offset, width, height)
+                // We pass 0f as offset because we are processing full image now
+                binding.overlayView.setResults(1, p1Pose, p1Mask, width, height, isFrontCamera, 0f)
+                onPoseDetected(1, p1Pose!!, 0f, width, height)
             }
             if (p2Pose != null) {
-                binding.overlayView.setResults(2, p2Pose, p2Mask, width, height, isFrontCamera, p2Offset)
-                onPoseDetected(2, p2Pose!!, p2Offset, width, height)
+                binding.overlayView.setResults(2, p2Pose, p2Mask, width, height, isFrontCamera, 0f)
+                onPoseDetected(2, p2Pose!!, 0f, width, height)
             }
             
             imageProxy.close()
-            leftBitmap.recycle()
-            rightBitmap.recycle()
-            rotatedBitmap.recycle()
         }
     }
 

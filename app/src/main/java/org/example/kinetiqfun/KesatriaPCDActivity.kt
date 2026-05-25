@@ -27,11 +27,14 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
 import kotlin.math.max
+import androidx.activity.viewModels
+import androidx.lifecycle.Observer
 import org.example.kinetiqfun.TooltipHelper
 import org.example.kinetiqfun.TooltipManager
 
 class KesatriaPCDActivity : BasePoseActivity() {
 
+    private val viewModel: GameStateViewModel by viewModels()
     private val rocks = mutableListOf<OverlayView.Rock>()
     private var nameP1 = "Player 1"
     private var nameP2 = "Player 2"
@@ -91,6 +94,27 @@ class KesatriaPCDActivity : BasePoseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         isGameStarted = false // Wait for tutorial
+
+        // Observe ViewModel for UI updates
+        viewModel.rocks.observe(this) { updatedRocks ->
+            binding.overlayView.updateGameState(
+                updatedRocks, 
+                viewModel.scoreP1.value ?: 0, 
+                viewModel.scoreP2.value ?: 0, 
+                nameP1, 
+                nameP2, 
+                viewModel.winner.value
+            )
+        }
+        
+        viewModel.scoreP1.observe(this) { updateOverlay() }
+        viewModel.scoreP2.observe(this) { updateOverlay() }
+        viewModel.winner.observe(this) { win ->
+            if (win != null) {
+                showGameOverUI(win)
+            }
+            updateOverlay()
+        }
         
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -160,6 +184,8 @@ class KesatriaPCDActivity : BasePoseActivity() {
     private fun startWaitingForPlayers() {
         isWaitingForPlayers = true
         binding.waitingLayout.visibility = View.VISIBLE
+        binding.waitingTitleText.text = getString(R.string.waiting)
+        binding.waitingSubtitleText.text = getString(R.string.waiting_instruction)
         
         val handler = Handler(Looper.getMainLooper())
         val checkRunnable = object : Runnable {
@@ -170,11 +196,21 @@ class KesatriaPCDActivity : BasePoseActivity() {
                 val p1Detected = (now - lastP1DetectTime) < 1500 // Detected within 1.5 seconds
                 val p2Detected = (now - lastP2DetectTime) < 1500
                 
-                if (p1Detected && p2Detected && isDeviceStable) {
-                    isWaitingForPlayers = false
-                    binding.waitingLayout.visibility = View.GONE
-                    startCountdown()
+                if (p1Detected && p2Detected) {
+                    if (isDeviceStable) {
+                        isWaitingForPlayers = false
+                        binding.waitingLayout.visibility = View.GONE
+                        startCountdown()
+                    } else {
+                        // Change text to nudge user to stabilize device
+                        binding.waitingTitleText.text = getString(R.string.calibration_title)
+                        binding.waitingSubtitleText.text = getString(R.string.calibration_instruction)
+                        handler.postDelayed(this, 500)
+                    }
                 } else {
+                    // Reset text if players not detected
+                    binding.waitingTitleText.text = getString(R.string.waiting)
+                    binding.waitingSubtitleText.text = getString(R.string.waiting_instruction)
                     handler.postDelayed(this, 500)
                 }
             }
@@ -223,6 +259,17 @@ class KesatriaPCDActivity : BasePoseActivity() {
         }.start()
     }
 
+    private fun updateOverlay() {
+        binding.overlayView.updateGameState(
+            viewModel.rocks.value ?: emptyList(),
+            viewModel.scoreP1.value ?: 0,
+            viewModel.scoreP2.value ?: 0,
+            nameP1,
+            nameP2,
+            viewModel.winner.value
+        )
+    }
+
     private fun initRocks(width: Int, height: Int) {
         rocks.clear()
         
@@ -233,10 +280,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         }
         isInitialized = true
         
-        // Push state immediately so rocks are pre-drawn during the countdown/tutorial
-        runOnUiThread {
-            binding.overlayView.updateGameState(rocks.toList(), p1DestroyedCount, p2DestroyedCount, nameP1, nameP2, winner)
-        }
+        viewModel.updateRocks(rocks.toList())
     }
 
     private fun spawnRockForPlayer(playerId: Int, screenWidth: Int, screenHeight: Int, index: Int) {
@@ -306,7 +350,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         enhanceVisualFeedback(hitL.first || hitR.first, hitL.second || hitR.second, playerId)
 
         runOnUiThread {
-            overlay.updateGameState(rocks.toList(), p1DestroyedCount, p2DestroyedCount, nameP1, nameP2, winner)
+            viewModel.updateRocks(rocks.toList())
         }
     }
 
@@ -352,16 +396,18 @@ class KesatriaPCDActivity : BasePoseActivity() {
                         
                         // Increase score
                         if (playerId == 1) p1DestroyedCount++ else p2DestroyedCount++
+                        viewModel.updateScores(p1DestroyedCount, p2DestroyedCount)
                         
                         if (soundIdAction != 0) soundPool.play(soundIdAction, 1f, 1f, 1, 0, 0.8f) 
                         
                         // Schedule removal (do NOT respawn in this mode)
                         Handler(Looper.getMainLooper()).postDelayed({
                             rocks.remove(rock)
+                            viewModel.updateRocks(rocks.toList())
                         }, 100)
                         
                         checkWinner()
-                        if (winner != null && soundIdVictory != 0) {
+                        if (viewModel.winner.value != null && soundIdVictory != 0) {
                             soundPool.play(soundIdVictory, 1f, 1f, 2, 0, 1f)
                         }
                     }
@@ -378,37 +424,36 @@ class KesatriaPCDActivity : BasePoseActivity() {
 
     private fun checkWinner() {
         if (p1DestroyedCount >= totalRocksGoal) {
-            winner = nameP1
+            viewModel.setWinner(nameP1)
         } else if (p2DestroyedCount >= totalRocksGoal) {
-            winner = nameP2
+            viewModel.setWinner(nameP2)
         }
-        
-        if (winner != null) {
-            runOnUiThread {
-                binding.gameOverLayout.visibility = View.VISIBLE
-                binding.winnerText.visibility = View.GONE
-                    
-                // Efek Visual Kemenangan: Kilatan Emas di Background
-                val goldColor = Color.parseColor("#FFD700")
-                val handler = Handler(Looper.getMainLooper())
-                var toggle = false
-                val flashRunnable = object : Runnable {
-                    var count = 0
-                    override fun run() {
-                        if (count > 10) {
-                            binding.overlayView.backgroundTintList = null
-                            return
-                        }
-                        binding.overlayView.backgroundTintList = if (toggle) null else android.content.res.ColorStateList.valueOf(goldColor)
-                        toggle = !toggle
-                        count++
-                        handler.postDelayed(this, 150)
-                    }
-                }
-                handler.post(flashRunnable)
-                
+    }
 
+    private fun showGameOverUI(winName: String) {
+        runOnUiThread {
+            binding.gameOverLayout.visibility = View.VISIBLE
+            binding.winnerText.visibility = View.VISIBLE
+            binding.winnerText.text = getString(R.string.winner_text_format, winName)
+                
+            // Efek Visual Kemenangan: Kilatan Emas di Background
+            val goldColor = Color.parseColor("#FFD700")
+            val handler = Handler(Looper.getMainLooper())
+            var toggle = false
+            val flashRunnable = object : Runnable {
+                var count = 0
+                override fun run() {
+                    if (count > 10) {
+                        binding.overlayView.backgroundTintList = null
+                        return
+                    }
+                    binding.overlayView.backgroundTintList = if (toggle) null else android.content.res.ColorStateList.valueOf(goldColor)
+                    toggle = !toggle
+                    count++
+                    handler.postDelayed(this, 150)
+                }
             }
+            handler.post(flashRunnable)
         }
     }
     
@@ -420,20 +465,20 @@ class KesatriaPCDActivity : BasePoseActivity() {
         if (isHit) {
             // Brief flash when hit
             overlay.post {
-                overlay.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.BLUE)
+                overlay.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(100, 255, 255, 255))
                 handler.postDelayed({
                     overlay.backgroundTintList = null
-                }, 100)
+                }, 80)
             }
         }
         
         if (isBreak) {
             // Longer flash when rock breaks
             overlay.post {
-                overlay.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.CYAN)
+                overlay.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(150, 255, 255, 0))
                 handler.postDelayed({
                     overlay.backgroundTintList = null
-                }, 300)
+                }, 200)
             }
         }
     }

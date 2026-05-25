@@ -2,7 +2,6 @@ package org.example.kinetiqfun
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.os.Build
 import android.os.Bundle
@@ -102,7 +101,6 @@ class MainActivity : AppCompatActivity() {
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setTargetAspectRatio(aspectRatio)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build()
                 .also {
                     it.setAnalyzer(cameraExecutor) { imageProxy ->
@@ -121,63 +119,43 @@ class MainActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalGetImage::class)
     private fun processMultiplayer(imageProxy: ImageProxy) {
-        val bitmap = imageProxy.toBitmap()
+        val mediaImage = imageProxy.image ?: run { imageProxy.close(); return }
         val rotation = imageProxy.imageInfo.rotationDegrees
         
-        val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-        val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        val fullInputImage = InputImage.fromMediaImage(mediaImage, rotation)
         
-        val width = rotatedBitmap.width
-        val height = rotatedBitmap.height
-        val halfWidth = width / 2
+        val width = if (rotation == 90 || rotation == 270) imageProxy.height else imageProxy.width
+        val height = if (rotation == 90 || rotation == 270) imageProxy.width else imageProxy.height
 
-        // Potongan Kiri Sensor
-        val leftBitmap = Bitmap.createBitmap(rotatedBitmap, 0, 0, halfWidth, height)
-        val leftImage = InputImage.fromBitmap(leftBitmap, 0)
-
-        // Potongan Kanan Sensor
-        val rightBitmap = Bitmap.createBitmap(rotatedBitmap, halfWidth, 0, halfWidth, height)
-        val rightImage = InputImage.fromBitmap(rightBitmap, 0)
-
-        // Mapping agar Player 1 selalu di KIRI LAYAR dan Player 2 di KANAN LAYAR
-        // Kamera Depan (Mirrored): Sensor Kanan -> Layar Kiri (P1), Sensor Kiri -> Layar Kanan (P2)
-        val p1Input = if (isFrontCamera) rightImage else leftImage
-        val p1Offset = if (isFrontCamera) halfWidth.toFloat() else 0f
-        
-        val p2Input = if (isFrontCamera) leftImage else rightImage
-        val p2Offset = if (isFrontCamera) 0f else halfWidth.toFloat()
-
-        val task1 = poseDetector1.process(p1Input)
+        val task1 = poseDetector1.process(fullInputImage)
             .addOnSuccessListener { pose ->
                 if (pose.allPoseLandmarks.size > 15) {
-                    binding.overlayView.setResults(1, pose, null, width, height, isFrontCamera, p1Offset)
-                    onPoseDetected(1, pose, p1Offset, width, height)
+                    binding.overlayView.setResults(1, pose, null, width, height, isFrontCamera, 0f)
+                    onPoseDetected(1, pose, 0f, width, height)
                 } else {
-                    binding.overlayView.setResults(1, null, null, width, height, isFrontCamera, p1Offset)
+                    binding.overlayView.setResults(1, null, null, width, height, isFrontCamera, 0f)
                 }
             }
 
-        val task2 = poseDetector2.process(p2Input)
+        val task2 = poseDetector2.process(fullInputImage)
             .addOnSuccessListener { pose ->
                 if (pose.allPoseLandmarks.size > 15) {
-                    binding.overlayView.setResults(2, pose, null, width, height, isFrontCamera, p2Offset)
-                    onPoseDetected(2, pose, p2Offset, width, height)
+                    binding.overlayView.setResults(2, pose, null, width, height, isFrontCamera, 0f)
+                    onPoseDetected(2, pose, 0f, width, height)
                 } else {
-                    binding.overlayView.setResults(2, null, null, width, height, isFrontCamera, p2Offset)
+                    binding.overlayView.setResults(2, null, null, width, height, isFrontCamera, 0f)
                 }
             }
 
         // Tunggu keduanya selesai sebelum membersihkan resource
         Tasks.whenAllComplete(task1, task2).addOnCompleteListener {
             imageProxy.close()
-            leftBitmap.recycle()
-            rightBitmap.recycle()
-            rotatedBitmap.recycle()
         }
     }
 
     private fun onPoseDetected(playerId: Int, pose: Pose, pXOffset: Float, imgWidth: Int, imgHeight: Int) {
         // Main activity doesn't need specific pose logic for now
+        Log.d("KinetiQ", "Pose detected for player $playerId at offset $pXOffset ($imgWidth x $imgHeight)")
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {

@@ -2,7 +2,6 @@ package org.example.kinetiqfun
 
 import android.content.Context
 import android.graphics.*
-import android.graphics.drawable.AnimatedImageDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.util.AttributeSet
@@ -44,36 +43,35 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         var rightHandOffsetY = 0f
     }
 
-    private val playersPose = mutableMapOf<Int, Pair<Pose, Float>>()
+    internal val playersPose = mutableMapOf<Int, Pair<Pose, Float>>()
     private val playersMask = mutableMapOf<Int, SegmentationMask>()
     
     private val playerMaskPixels = mutableMapOf<Int, IntArray>()
     private val playerMaskBitmaps = mutableMapOf<Int, Bitmap>()
-    private val gameTypeface: Typeface? by lazy {
+    internal val gameTypeface: Typeface? by lazy {
         ResourcesCompat.getFont(context, R.font.game_font)
     }
 
     private val targetLandmarks = mutableMapOf<Int, MutableMap<Int, PointF>>()
     private val drawnLandmarks = mutableMapOf<Int, MutableMap<Int, PointF>>()
 
-    private var imageWidth: Int = 0
-    private var imageHeight: Int = 0
-    private var isFrontCamera: Boolean = true
+    internal var imageWidth: Int = 0
+    internal var imageHeight: Int = 0
+    internal var isFrontCamera: Boolean = true
 
-    private val handLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.hand_left)
-    private val handRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.hand_right)
-    private val head1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.head1)
-    private val head2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.head2)
-    private val body1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.body1)
-    private val body2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.body2)
+    internal val handLeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.hand_left)
+    internal val handRightBitmap = BitmapFactory.decodeResource(resources, R.drawable.hand_right)
+    internal val head1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.head1)
+    internal val head2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.head2)
+    internal val body1Bitmap = BitmapFactory.decodeResource(resources, R.drawable.body1)
+    internal val body2Bitmap = BitmapFactory.decodeResource(resources, R.drawable.body2)
     
-    private val shoulder1LeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder1_left)
-    private val shoulder1RightBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder1_right)
-    private val shoulder2LeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder2_left)
-    private val shoulder2RightBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder2_right)
+    internal val shoulder1LeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder1_left)
+    internal val shoulder1RightBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder1_right)
+    internal val shoulder2LeftBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder2_left)
+    internal val shoulder2RightBitmap = BitmapFactory.decodeResource(resources, R.drawable.shoulder2_right)
 
-    private val groundBitmap = BitmapFactory.decodeResource(resources, R.drawable.ground)
-    private val boxBitmap = BitmapFactory.decodeResource(resources, R.drawable.box)
+    internal val boxBitmap = BitmapFactory.decodeResource(resources, R.drawable.box)
 
     data class Rock(
         val id: Int,
@@ -88,17 +86,72 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     enum class GameMode { KESATRIA, BALAP_GEOL, TIRU_GAYA, NONE }
     var currentGameMode = GameMode.KESATRIA
 
-    private var balapP1Progress = 0f
-    private var balapP2Progress = 0f
+    internal var balapP1Progress = 0f
+    internal var balapP2Progress = 0f
     
-    private var p1Drawable: Drawable? = null
-    private var p2Drawable: Drawable? = null
+    internal var p1Drawable: Drawable? = null
+    internal var p2Drawable: Drawable? = null
     
     // Disco Filter
-    private var discoHue = 0f
-    private val discoPaint = Paint().apply { style = Paint.Style.FILL }
+    internal var discoHue = 0f
+    internal val discoPaint = Paint().apply { style = Paint.Style.FILL }
+    
+    // --- REUSED DRAWING OBJECTS ---
+    internal val commonPaint = Paint().apply { isAntiAlias = true }
+    internal val hudPaint = Paint().apply { isFakeBoldText = true; setShadowLayer(10f, 0f, 0f, Color.BLACK) }
+    internal val dashedPaint = Paint().apply {
+        color = Color.parseColor("#80FFFFFF")
+        style = Paint.Style.STROKE
+        strokeWidth = 25f
+        pathEffect = DashPathEffect(floatArrayOf(50f, 50f), 0f)
+        strokeCap = Paint.Cap.ROUND
+    }
+    internal val particlePaint = Paint().apply { style = Paint.Style.FILL }
+    internal val floatTextPaint = Paint().apply {
+        color = Color.YELLOW
+        textSize = 60f
+        isFakeBoldText = true
+        textAlign = Paint.Align.CENTER
+        setShadowLayer(4f, 0f, 0f, Color.BLACK)
+    }
+    internal val hpPaint = Paint().apply {
+        color = Color.YELLOW
+        textSize = 35f
+        isFakeBoldText = true
+        setShadowLayer(5f, 0f, 0f, Color.BLACK)
+        textAlign = Paint.Align.CENTER
+    }
+    internal val trackPaint = Paint().apply {
+        color = Color.WHITE
+        strokeWidth = 10f
+        style = Paint.Style.STROKE
+    }
+    internal val winnerOverlayPaint = Paint().apply { color = Color.argb(150, 0, 0, 0) }
+    internal val winnerTextPaint = Paint().apply {
+        color = Color.YELLOW
+        textSize = 100f
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+        setShadowLayer(15f, 0f, 0f, Color.RED)
+    }
+    internal val celebrationLinePaint = Paint().apply {
+        color = Color.YELLOW
+        strokeWidth = 10f
+        style = Paint.Style.STROKE
+    }
+    internal val silhouettePaint = Paint().apply {
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        style = Paint.Style.FILL_AND_STROKE
+    }
+    internal val torsoPath = Path()
+    internal val tempRect = RectF()
+    internal val tempMatrix = Matrix()
 
-    private var rocks = mutableListOf<Rock>()
+    private val kesatriaRenderer = KesatriaRenderer(this)
+    private val balapGeolRenderer = BalapGeolRenderer(this)
+
+    internal var rocks = mutableListOf<Rock>()
     private var nameP1 = ""
     private var nameP2 = ""
     private var scoreP1 = 0
@@ -106,23 +159,15 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var winner: String? = null
     private var winSoundPlayed = false
 
-    private var currentTargetPoseName = "IDLE"
-    private var p1MatchProgress = 0f
-    private var p2MatchProgress = 0f
-
-    data class Projectile(var x: Float, var y: Float, val vx: Float, val ownerId: Int)
-    private val projectiles = mutableListOf<Projectile>()
-    private var hpP1 = 100
-    private var hpP2 = 100
-
-    private var gameStartTime = System.currentTimeMillis()
-
     data class Particle(
         var x: Float, var y: Float,
         var vx: Float, var vy: Float,
-        val size: Float, var alpha: Int,
-        val color: Int, var life: Int
+        var size: Float, var alpha: Int,
+        val color: Int, var life: Int,
+        val type: ParticleType = ParticleType.CIRCLE
     )
+
+    enum class ParticleType { CIRCLE, SQUARE, STAR, SPARK }
     private val particles = mutableListOf<Particle>()
     private val random = java.util.Random()
 
@@ -161,7 +206,6 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     fun updateGameState(fallingRocks: List<Rock>, scoreP1: Int, scoreP2: Int, nP1: String, nP2: String, win: String?) {
         if (currentGameMode != GameMode.KESATRIA) {
-            gameStartTime = System.currentTimeMillis()
             winSoundPlayed = false
         }
         currentGameMode = GameMode.KESATRIA
@@ -196,16 +240,17 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private fun spawnRockParticles(rect: RectF) {
         val centerX = rect.centerX()
         val centerY = rect.centerY()
-        for (i in 0..25) {
+        for (i in 0..30) {
             particles.add(Particle(
                 x = centerX,
                 y = centerY,
-                vx = (random.nextFloat() - 0.5f) * 30f,
-                vy = (random.nextFloat() - 0.5f) * 30f - 10f,
-                size = random.nextFloat() * 25f + 10f,
+                vx = (random.nextFloat() - 0.5f) * 40f,
+                vy = (random.nextFloat() - 0.5f) * 40f - 15f,
+                size = random.nextFloat() * 30f + 15f,
                 alpha = 255,
                 color = if (random.nextBoolean()) Color.DKGRAY else Color.GRAY,
-                life = 40 + random.nextInt(20)
+                life = 50 + random.nextInt(30),
+                type = if (random.nextBoolean()) ParticleType.SQUARE else ParticleType.CIRCLE
             ))
         }
     }
@@ -213,16 +258,17 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private fun spawnHitSparks(rect: RectF) {
         val centerX = rect.centerX()
         val centerY = rect.centerY()
-        for (i in 0..8) {
+        for (i in 0..12) {
             particles.add(Particle(
                 x = centerX,
                 y = centerY,
-                vx = (random.nextFloat() - 0.5f) * 15f,
-                vy = (random.nextFloat() - 0.5f) * 15f - 5f,
-                size = random.nextFloat() * 8f + 4f,
+                vx = (random.nextFloat() - 0.5f) * 25f,
+                vy = (random.nextFloat() - 0.5f) * 25f - 10f,
+                size = random.nextFloat() * 12f + 6f,
                 alpha = 255,
-                color = Color.rgb(255, 165, 0), // Orange sparks
-                life = 15 + random.nextInt(10)
+                color = if (random.nextBoolean()) Color.YELLOW else Color.rgb(255, 165, 0),
+                life = 20 + random.nextInt(15),
+                type = ParticleType.SPARK
             ))
         }
     }
@@ -254,17 +300,25 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun spawnVictoryParticles() {
-        for (i in 0 until 100) {
+        for (i in 0 until 120) {
             // Left Cannon
-            val vx = (random.nextFloat() - 0.2f) * 40f
-            val vy = -(20f + random.nextFloat() * 40f)
+            val vx = (random.nextFloat() - 0.1f) * 50f
+            val vy = -(25f + random.nextFloat() * 50f)
             val color = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256))
-            particles.add(Particle(width * 0.1f, height.toFloat(), vx, vy, 15f + random.nextFloat() * 20f, 255, color, 80 + random.nextInt(40)))
+            particles.add(Particle(
+                width * 0.1f, height.toFloat(), vx, vy, 
+                15f + random.nextFloat() * 25f, 255, color, 100 + random.nextInt(50),
+                type = if (random.nextBoolean()) ParticleType.STAR else ParticleType.CIRCLE
+            ))
             
             // Right Cannon
-            val vx2 = (random.nextFloat() - 0.8f) * 40f
+            val vx2 = (random.nextFloat() - 0.9f) * 50f
             val color2 = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256))
-            particles.add(Particle(width * 0.9f, height.toFloat(), vx2, vy, 15f + random.nextFloat() * 20f, 255, color2, 80 + random.nextInt(40)))
+            particles.add(Particle(
+                width * 0.9f, height.toFloat(), vx2, vy, 
+                15f + random.nextFloat() * 25f, 255, color2, 100 + random.nextInt(50),
+                type = if (random.nextBoolean()) ParticleType.STAR else ParticleType.CIRCLE
+            ))
         }
     }
 
@@ -292,7 +346,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         postInvalidate()
     }
 
-    private fun getPos(playerId: Int, type: Int): PointF? {
+    internal fun getPos(playerId: Int, type: Int): PointF? {
         return drawnLandmarks[playerId]?.get(type)
     }
 
@@ -342,19 +396,12 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
         
         // --- LAYER 2: Center Line (Always on Top of background) ---
-        val dashedPaint = Paint().apply {
-            color = Color.parseColor("#80FFFFFF") // Semi-transparent white
-            style = Paint.Style.STROKE
-            strokeWidth = 25f // Even thicker
-            pathEffect = DashPathEffect(floatArrayOf(50f, 50f), 0f)
-            strokeCap = Paint.Cap.ROUND
-        }
         canvas.drawLine(width / 2f, 0f, width / 2f, height.toFloat(), dashedPaint)
 
         // Draw Game Content
         when (currentGameMode) {
-            GameMode.KESATRIA -> drawKesatriaPCD(canvas)
-            GameMode.BALAP_GEOL -> drawBalapGeol(canvas)
+            GameMode.KESATRIA -> kesatriaRenderer.onDraw(canvas)
+            GameMode.BALAP_GEOL -> balapGeolRenderer.onDraw(canvas)
             GameMode.TIRU_GAYA -> drawTiruGaya(canvas)
             GameMode.NONE -> {}
         }
@@ -362,32 +409,43 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         drawHUD(canvas)
         
         val iterator = particles.iterator()
-        val particlePaint = Paint().apply { style = Paint.Style.FILL }
         while (iterator.hasNext()) {
             val p = iterator.next()
             p.x += p.vx
             p.y += p.vy
-            p.vy += 0.5f
-            p.alpha = (p.alpha * 0.92f).toInt()
+            p.vy += 0.7f // Increased gravity for snappier feel
+            p.alpha = (p.alpha * 0.94f).toInt()
             p.life--
             if (p.life <= 0 || p.alpha <= 10) {
                 iterator.remove()
             } else {
                 particlePaint.color = p.color
                 particlePaint.alpha = p.alpha
-                canvas.drawCircle(p.x, p.y, p.size, particlePaint)
+                
+                when (p.type) {
+                    ParticleType.CIRCLE -> canvas.drawCircle(p.x, p.y, p.size, particlePaint)
+                    ParticleType.SQUARE -> canvas.drawRect(p.x - p.size, p.y - p.size, p.x + p.size, p.y + p.size, particlePaint)
+                    ParticleType.STAR -> {
+                        // Simple 4-point star/diamond
+                        torsoPath.reset()
+                        torsoPath.moveTo(p.x, p.y - p.size * 1.5f)
+                        torsoPath.lineTo(p.x + p.size, p.y)
+                        torsoPath.lineTo(p.x, p.y + p.size * 1.5f)
+                        torsoPath.lineTo(p.x - p.size, p.y)
+                        torsoPath.close()
+                        canvas.drawPath(torsoPath, particlePaint)
+                    }
+                    ParticleType.SPARK -> {
+                        // Line spark
+                        particlePaint.strokeWidth = p.size / 3f
+                        canvas.drawLine(p.x, p.y, p.x - p.vx * 1.5f, p.y - p.vy * 1.5f, particlePaint)
+                    }
+                }
             }
         }
 
         val textIterator = floatingTexts.iterator()
-        val floatTextPaint = Paint().apply {
-            color = Color.YELLOW
-            textSize = 60f
-            isFakeBoldText = true
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(4f, 0f, 0f, Color.BLACK)
-            typeface = gameTypeface
-        }
+        floatTextPaint.typeface = gameTypeface
         while (textIterator.hasNext()) {
             val ft = textIterator.next()
             ft.y -= 3f // Float up
@@ -402,7 +460,6 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
         
         if (currentGameMode == GameMode.KESATRIA && rocks.any { !it.isDestroyed && it.rect.bottom < height * 0.85f }) postInvalidateOnAnimation()
-        if (currentGameMode == GameMode.KESATRIA && projectiles.isNotEmpty()) postInvalidateOnAnimation()
         if (particles.isNotEmpty() || floatingTexts.isNotEmpty() || shakeIntensity > 0 || needsAnimation || winner != null) postInvalidateOnAnimation()
     }
 
@@ -410,182 +467,20 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         // As requested, no skeleton is visualized in Tiru Gaya
     }
 
-    private fun drawKesatriaPCD(canvas: Canvas) {
-        val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
-        val canvasOffsetX = (width - imageWidth * scale) / 2f
-        val canvasOffsetY = (height - imageHeight * scale) / 2f
-
-        val hpPaint = Paint().apply {
-            color = Color.YELLOW
-            textSize = 35f
-            isFakeBoldText = true
-            typeface = gameTypeface
-            setShadowLayer(5f, 0f, 0f, Color.BLACK)
-            textAlign = Paint.Align.CENTER
-        }
-
-        rocks.forEach { rock ->
-            if (!rock.isDestroyed) {
-                val currentHP = 5 - rock.hits
-                canvas.drawText("HP: $currentHP", rock.rect.centerX(), rock.rect.top - 10f, hpPaint)
-
-                if (rock.shakeAmount > 0) {
-                    val sx = (Math.random().toFloat() - 0.5f) * rock.shakeAmount
-                    val offsetRect = RectF(rock.rect)
-                    offsetRect.offset(sx, 0f)
-                    canvas.drawBitmap(boxBitmap, null, offsetRect, null)
-                    rock.shakeAmount -= 2f
-                } else {
-                    canvas.drawBitmap(boxBitmap, null, rock.rect, null)
-                }
-            }
-        }
-
-        playersPose.forEach { (id, data) ->
-            val (_, pXOffset) = data
-            val tx = { x: Float -> 
-                var sx = (x + pXOffset) * scale + canvasOffsetX
-                if (isFrontCamera) sx = width - sx
-                sx
-            }
-            val ty = { y: Float -> y * scale + canvasOffsetY }
-            val ls = getPos(id, PoseLandmark.LEFT_SHOULDER)
-            val rs = getPos(id, PoseLandmark.RIGHT_SHOULDER)
-            if (ls != null && rs != null) {
-                val sw = Math.hypot((tx(ls.x) - tx(rs.x)).toDouble(), (ty(ls.y) - ty(rs.y)).toDouble()).toFloat()
-                drawBody(canvas, id, tx, ty, sw * 1.55f)
-                drawShoulders(canvas, id, tx, ty, sw)
-                drawHands(canvas, id, tx, ty, sw * 0.48f)
-                drawHead(canvas, id, tx, ty, sw * 0.95f)
-            }
-        }
-    }
-
-    private fun drawBalapGeol(canvas: Canvas) {
-        if (p1Drawable == null || p2Drawable == null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                try {
-                    val src1 = ImageDecoder.createSource(context.resources, R.drawable.karakter_kicau_mania)
-                    val d1 = ImageDecoder.decodeDrawable(src1)
-                    if (d1 is AnimatedImageDrawable) d1.start()
-                    p1Drawable = d1
-                    
-                    val src2 = ImageDecoder.createSource(context.resources, R.drawable.karakter_kicau_mania)
-                    val d2 = ImageDecoder.decodeDrawable(src2)
-                    if (d2 is AnimatedImageDrawable) d2.start()
-                    p2Drawable = d2
-                } catch (e: Exception) {
-                    p1Drawable = context.getDrawable(R.drawable.box)
-                    p2Drawable = context.getDrawable(R.drawable.box)
-                }
-            } else {
-                p1Drawable = context.getDrawable(R.drawable.karakter_kicau_mania)
-                p2Drawable = context.getDrawable(R.drawable.karakter_kicau_mania)
-            }
-        }
-        
-        // Disco Filter Effect
-        discoHue = (discoHue + 3f) % 360f
-        discoPaint.color = Color.HSVToColor(70, floatArrayOf(discoHue, 1f, 1f))
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), discoPaint)
-        
-        // Track Finish Line
-        val finishLineY = 200f
-        val startY = height - 150f
-        val trackLength = startY - finishLineY
-        
-        val paint = Paint().apply {
-            color = Color.WHITE
-            strokeWidth = 10f
-            style = Paint.Style.STROKE
-        }
-        
-        // Garis Start dan Finish masing-masing player
-        val p1CenterX = width * 0.25f
-        val p2CenterX = width * 0.75f
-        
-        // P1 Finish & Start
-        canvas.drawLine(p1CenterX - 200f, finishLineY, p1CenterX + 200f, finishLineY, paint)
-        canvas.drawLine(p1CenterX - 200f, startY + 50f, p1CenterX + 200f, startY + 50f, paint)
-        
-        // P2 Finish & Start
-        canvas.drawLine(p2CenterX - 200f, finishLineY, p2CenterX + 200f, finishLineY, paint)
-        canvas.drawLine(p2CenterX - 200f, startY + 50f, p2CenterX + 200f, startY + 50f, paint)
-        
-        paint.textSize = 60f
-        paint.style = Paint.Style.FILL
-        paint.typeface = gameTypeface
-        paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("FINISH", p1CenterX, finishLineY - 20f, paint)
-        canvas.drawText("FINISH", p2CenterX, finishLineY - 20f, paint)
-        
-        p1Drawable?.let {
-            val p1X = width * 0.25f
-            val p1Y = startY - (balapP1Progress * trackLength)
-            it.setBounds((p1X - 250f).toInt(), (p1Y - 250f).toInt(), (p1X + 250f).toInt(), (p1Y + 250f).toInt())
-            it.draw(canvas)
-        }
-        
-        p2Drawable?.let {
-            val p2X = width * 0.75f
-            val p2Y = startY - (balapP2Progress * trackLength)
-            it.setBounds((p2X - 250f).toInt(), (p2Y - 250f).toInt(), (p2X + 250f).toInt(), (p2Y + 250f).toInt())
-            it.draw(canvas)
-        }
-        
-        if (winner == null) {
-            postInvalidateOnAnimation()
-        }
-    }
-
-    private fun drawDanceOverlay(canvas: Canvas) {
-        val paint = Paint().apply {
-            color = Color.WHITE
-            textSize = 60f
-            textAlign = Paint.Align.CENTER
-            isFakeBoldText = true
-            typeface = gameTypeface
-        }
-        canvas.drawText("POSE: $currentTargetPoseName", width / 2f, 150f, paint)
-
-        val barWidth = width * 0.35f
-        val barHeight = 25f
-        val p1Paint = Paint().apply { color = Color.CYAN }
-        canvas.drawRect(width * 0.1f, 180f, width * 0.1f + barWidth * p1MatchProgress, 180f + barHeight, p1Paint)
-        
-        val p2Paint = Paint().apply { color = Color.MAGENTA }
-        canvas.drawRect(width * 0.9f - barWidth * p2MatchProgress, 180f, width * 0.9f, 180f + barHeight, p2Paint)
-    }
-
-    private fun drawFighterOverlay(canvas: Canvas) {
-        val p = Paint().apply { isAntiAlias = true }
-        projectiles.forEach { proj ->
-            p.color = if (proj.ownerId == 1) Color.CYAN else Color.MAGENTA
-            canvas.drawCircle(proj.x, proj.y, 15f, p)
-            spawnHitParticles(proj.x, proj.y, p.color) // Trail effect
-        }
-    }
-
     private fun drawHUD(canvas: Canvas) {
-        val paint = Paint().apply {
-            color = Color.parseColor("#FFEB3B") // Yellow from image
-            textSize = 65f
-            isFakeBoldText = true
-            setShadowLayer(10f, 0f, 0f, Color.BLACK)
-            typeface = gameTypeface
-        }
+        hudPaint.color = Color.parseColor("#FFEB3B") // Yellow from image
+        hudPaint.textSize = 65f
+        hudPaint.typeface = gameTypeface
         
         if (currentGameMode != GameMode.BALAP_GEOL) {
             // Player 1 Score (Top Left)
-            paint.textAlign = Paint.Align.LEFT
-            canvas.drawText("P1: $scoreP1", 50f, 100f, paint)
+            hudPaint.textAlign = Paint.Align.LEFT
+            canvas.drawText("P1: $scoreP1", 50f, 100f, hudPaint)
             
             // Player 2 Score (Top Right)
-            paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("P2: $scoreP2", width - 50f, 100f, paint)
+            hudPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("P2: $scoreP2", width - 50f, 100f, hudPaint)
         }
-
-
 
         winner?.let { winName ->
             drawWinnerOverlay(canvas, winName)
@@ -593,33 +488,20 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun drawWinnerOverlay(canvas: Canvas, winName: String) {
-        val overlayPaint = Paint().apply {
-            color = Color.argb(150, 0, 0, 0)
-        }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), winnerOverlayPaint)
 
-        val textPaint = Paint().apply {
-            color = Color.YELLOW
-            textSize = 100f
-            textAlign = Paint.Align.CENTER
-            isFakeBoldText = true
-            setShadowLayer(15f, 0f, 0f, Color.RED)
-            typeface = gameTypeface
-        }
+        winnerTextPaint.typeface = gameTypeface
 
         val bounce = (Math.sin(System.currentTimeMillis() * 0.01) * 20).toFloat()
-        canvas.drawText("WINNER!", width / 2f, height / 2f - 50f + bounce, textPaint)
+        winnerTextPaint.textSize = 100f
+        winnerTextPaint.color = Color.YELLOW
+        canvas.drawText("WINNER!", width / 2f, height / 2f - 50f + bounce, winnerTextPaint)
         
-        textPaint.textSize = 80f
-        textPaint.color = Color.WHITE
-        canvas.drawText(winName, width / 2f, height / 2f + 80f + bounce, textPaint)
+        winnerTextPaint.textSize = 80f
+        winnerTextPaint.color = Color.WHITE
+        canvas.drawText(winName, width / 2f, height / 2f + 80f + bounce, winnerTextPaint)
         
         // Add some "celebration" lines
-        val linePaint = Paint().apply {
-            color = Color.YELLOW
-            strokeWidth = 10f
-            style = Paint.Style.STROKE
-        }
         val time = System.currentTimeMillis() * 0.005
         for (i in 0 until 8) {
             val angle = i * (Math.PI / 4) + time
@@ -630,7 +512,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 height / 2f + Math.sin(angle).toFloat() * r1,
                 width / 2f + Math.cos(angle).toFloat() * r2,
                 height / 2f + Math.sin(angle).toFloat() * r2,
-                linePaint
+                celebrationLinePaint
             )
         }
     }
@@ -660,12 +542,12 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         bitmap.setPixels(pixels, 0, maskWidth, 0, 0, maskWidth, maskHeight)
         
         // Handle Mirroring for Front Camera
-        val matrix = Matrix()
+        tempMatrix.reset()
         if (isFrontCamera) {
-            matrix.postScale(-1f, 1f)
-            matrix.postTranslate(maskWidth.toFloat(), 0f)
+            tempMatrix.postScale(-1f, 1f)
+            tempMatrix.postTranslate(maskWidth.toFloat(), 0f)
         }
-        matrix.postScale(scale, scale)
+        tempMatrix.postScale(scale, scale)
         
         // Calculate screen position
         val screenX = if (isFrontCamera) {
@@ -673,9 +555,9 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         } else {
             offsetX * scale
         }
-        matrix.postTranslate(screenX, offsetY * scale)
+        tempMatrix.postTranslate(screenX, offsetY * scale)
         
-        canvas.drawBitmap(bitmap, matrix, paint)
+        canvas.drawBitmap(bitmap, tempMatrix, paint)
     }
 
     private fun drawHumanSilhouette(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, paint: Paint) {
@@ -691,14 +573,13 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             (ty(ls.y) - ty(rs.y)).toDouble()
         ).toFloat()
         
-        val silhouettePaint = Paint(paint).apply {
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-            style = Paint.Style.FILL_AND_STROKE
-        }
+        silhouettePaint.set(paint)
+        silhouettePaint.strokeCap = Paint.Cap.ROUND
+        silhouettePaint.strokeJoin = Paint.Join.ROUND
+        silhouettePaint.style = Paint.Style.FILL_AND_STROKE
 
         // --- TORSO ---
-        val torsoPath = Path()
+        torsoPath.reset()
         torsoPath.moveTo(tx(ls.x), ty(ls.y))
         torsoPath.lineTo(tx(rs.x), ty(rs.y))
         if (rh != null) torsoPath.lineTo(tx(rh.x), ty(rh.y))
@@ -747,7 +628,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
     }
 
-    private fun drawBody(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, bodyWidth: Float) {
+    internal fun drawBody(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, bodyWidth: Float) {
         val leftShoulder = getPos(id, PoseLandmark.LEFT_SHOULDER)
         val rightShoulder = getPos(id, PoseLandmark.RIGHT_SHOULDER)
         val leftHip = getPos(id, PoseLandmark.LEFT_HIP)
@@ -777,18 +658,18 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 }
                 canvas.rotate(angle, midShoulderX, midShoulderY)
                 if (isFrontCamera) canvas.scale(-1f, 1f, midShoulderX, midShoulderY)
-                val rect = RectF(
+                tempRect.set(
                     midShoulderX - scaledWidth / 2 + Config.bodyOffsetX, 
                     midShoulderY - scaledHeight * 0.25f + Config.bodyOffsetY, 
                     midShoulderX + scaledWidth / 2 + Config.bodyOffsetX, 
                     midShoulderY + scaledHeight * 0.75f + Config.bodyOffsetY
                 )
-                canvas.drawBitmap(bodyBitmap, null, rect, null)
+                canvas.drawBitmap(bodyBitmap, null, tempRect, null)
             }
         }
     }
 
-    private fun drawShoulders(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, shoulderWidth: Float) {
+    internal fun drawShoulders(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, shoulderWidth: Float) {
         val leftShoulder = getPos(id, PoseLandmark.LEFT_SHOULDER)
         val rightShoulder = getPos(id, PoseLandmark.RIGHT_SHOULDER)
         
@@ -816,29 +697,29 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         // Draw Left Shoulder Pad (left side of screen -> physical right shoulder)
         canvas.withSave {
             canvas.rotate(angle, rsX, rsY)
-            val rect = RectF(
+            tempRect.set(
                 rsX - scaledPadSize / 2 + Config.leftShoulderOffsetX, 
                 rsY - scaledPadSize / 2 + Config.leftShoulderOffsetY, 
                 rsX + scaledPadSize / 2 + Config.leftShoulderOffsetX, 
                 rsY + scaledPadSize / 2 + Config.leftShoulderOffsetY
             )
-            canvas.drawBitmap(leftBitmap, null, rect, null)
+            canvas.drawBitmap(leftBitmap, null, tempRect, null)
         }
         
         // Draw Right Shoulder Pad (right side of screen -> physical left shoulder)
         canvas.withSave {
             canvas.rotate(angle, lsX, lsY)
-            val rect = RectF(
+            tempRect.set(
                 lsX - scaledPadSize / 2 + Config.rightShoulderOffsetX, 
                 lsY - scaledPadSize / 2 + Config.rightShoulderOffsetY, 
                 lsX + scaledPadSize / 2 + Config.rightShoulderOffsetX, 
                 lsY + scaledPadSize / 2 + Config.rightShoulderOffsetY
             )
-            canvas.drawBitmap(rightBitmap, null, rect, null)
+            canvas.drawBitmap(rightBitmap, null, tempRect, null)
         }
     }
 
-    private fun drawHands(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, handSize: Float) {
+    internal fun drawHands(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, handSize: Float) {
         val leftWrist = getPos(id, PoseLandmark.LEFT_WRIST)
         val rightWrist = getPos(id, PoseLandmark.RIGHT_WRIST)
         val leftElbow = getPos(id, PoseLandmark.LEFT_ELBOW)
@@ -847,7 +728,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         rightWrist?.let { wrist -> drawRotatedHand(canvas, handLeftBitmap, wrist, rightElbow, tx, ty, handSize, Config.leftHandOffsetX, Config.leftHandOffsetY) }
     }
 
-    private fun drawHead(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, headSize: Float) {
+    internal fun drawHead(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, headSize: Float) {
         val nose = getPos(id, PoseLandmark.NOSE)
         val leftEye = getPos(id, PoseLandmark.LEFT_EYE)
         val rightEye = getPos(id, PoseLandmark.RIGHT_EYE)
@@ -866,13 +747,13 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 }
                 val scaledHeadSize = headSize * Config.headScale
                 if (isFrontCamera) canvas.scale(-1f, 1f, hx, hy)
-                val rect = RectF(
+                tempRect.set(
                     hx - scaledHeadSize / 2 + Config.headOffsetX, 
                     hy - scaledHeadSize * 0.75f + Config.headOffsetY, 
                     hx + scaledHeadSize / 2 + Config.headOffsetX, 
                     hy + scaledHeadSize * 0.25f + Config.headOffsetY
                 )
-                canvas.drawBitmap(headBitmap, null, rect, null)
+                canvas.drawBitmap(headBitmap, null, tempRect, null)
             }
         }
     }
@@ -900,13 +781,13 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             
             if (isFrontCamera) canvas.scale(-1f, 1f, wx, wy)
             
-            val rect = RectF(
+            tempRect.set(
                 wx - scaledHandSize / 2 + offsetX, 
                 wy - scaledHandSize / 2 + offsetY, 
                 wx + scaledHandSize / 2 + offsetX, 
                 wy + scaledHandSize / 2 + offsetY
             )
-            canvas.drawBitmap(bitmap, null, rect, null)
+            canvas.drawBitmap(bitmap, null, tempRect, null)
         }
     }
 
@@ -914,12 +795,10 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val data = playersPose[id] ?: return
         val pose = data.first
         
-        val paint = Paint().apply {
-            color = Color.WHITE
-            strokeWidth = 8f
-            style = Paint.Style.STROKE
-            isAntiAlias = true
-        }
+        commonPaint.color = Color.WHITE
+        commonPaint.strokeWidth = 8f
+        commonPaint.style = Paint.Style.STROKE
+        commonPaint.isAntiAlias = true
 
         val connections = listOf(
             Pair(PoseLandmark.LEFT_SHOULDER, PoseLandmark.RIGHT_SHOULDER),
@@ -940,7 +819,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             val start = pose.getPoseLandmark(edge.first)
             val end = pose.getPoseLandmark(edge.second)
             if (start != null && end != null && start.inFrameLikelihood > 0.2f && end.inFrameLikelihood > 0.2f) {
-                canvas.drawLine(tx(start.position.x), ty(start.position.y), tx(end.position.x), ty(end.position.y), paint)
+                canvas.drawLine(tx(start.position.x), ty(start.position.y), tx(end.position.x), ty(end.position.y), commonPaint)
             }
         }
         
@@ -950,8 +829,9 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         if (nose != null && leftEar != null && rightEar != null) {
             val radius = java.lang.Math.hypot((tx(leftEar.position.x) - tx(rightEar.position.x)).toDouble(), 
                                   (ty(leftEar.position.y) - ty(rightEar.position.y)).toDouble()).toFloat() / 1.5f
-            val headPaint = Paint(paint).apply { style = Paint.Style.FILL; color = Color.parseColor("#80FFFFFF") }
-            canvas.drawCircle(tx(nose.position.x), ty(nose.position.y), java.lang.Math.max(radius, 20f), headPaint)
+            commonPaint.style = Paint.Style.FILL
+            commonPaint.color = Color.parseColor("#80FFFFFF")
+            canvas.drawCircle(tx(nose.position.x), ty(nose.position.y), java.lang.Math.max(radius, 20f), commonPaint)
         }
     }
 }
