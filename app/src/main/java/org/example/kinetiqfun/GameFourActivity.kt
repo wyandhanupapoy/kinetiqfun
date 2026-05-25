@@ -58,6 +58,11 @@ class GameFourActivity : BasePoseActivity() {
     private var latestP1Pose: Pose? = null
     private var latestP2Pose: Pose? = null
     
+    // Waiting logic
+    private var isWaitingForPlayers = false
+    private var lastP1DetectTime = 0L
+    private var lastP2DetectTime = 0L
+    
     private var currentTargetDrawableId = 0
     private var isGameStarted = false
     
@@ -132,8 +137,34 @@ class GameFourActivity : BasePoseActivity() {
 
     private fun checkStartGame() {
         if (isTutorialFinished && isModelLoaded) {
-            startGame()
+            startWaitingForPlayers()
         }
+    }
+    
+    private fun startWaitingForPlayers() {
+        isWaitingForPlayers = true
+        binding.waitingLayout.visibility = View.VISIBLE
+        
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val checkRunnable = object : Runnable {
+            override fun run() {
+                if (isDestroyed || isFinishing) return
+                if (!isWaitingForPlayers) return
+                
+                val now = System.currentTimeMillis()
+                val p1Detected = (now - lastP1DetectTime) < 1500
+                val p2Detected = (now - lastP2DetectTime) < 1500
+                
+                if (p1Detected && p2Detected) {
+                    isWaitingForPlayers = false
+                    binding.waitingLayout.visibility = View.GONE
+                    startGame()
+                } else {
+                    handler.postDelayed(this, 500)
+                }
+            }
+        }
+        handler.post(checkRunnable)
     }
 
     private fun playTutorial() {
@@ -149,10 +180,15 @@ class GameFourActivity : BasePoseActivity() {
             val durationMs = mp.duration.toLong()
             tutorialTimer = object : android.os.CountDownTimer(durationMs, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
+                    if (isDestroyed || isFinishing) {
+                        cancel()
+                        return
+                    }
                     val secondsLeft = millisUntilFinished / 1000
                     binding.tutorialCountdownText.text = String.format("%02d", secondsLeft)
                 }
                 override fun onFinish() {
+                    if (isDestroyed || isFinishing) return
                     binding.tutorialCountdownText.text = "00"
                 }
             }.start()
@@ -194,7 +230,9 @@ class GameFourActivity : BasePoseActivity() {
     }
 
     private fun startRound() {
-        if (currentRound <= totalRounds) {
+        if (roundOrder.isEmpty()) {
+            currentTargetDrawableId = poseImages.random()
+        } else if (currentRound <= totalRounds && currentRound <= roundOrder.size) {
             currentTargetDrawableId = roundOrder[currentRound - 1]
         } else {
             // Sudden death
@@ -221,6 +259,7 @@ class GameFourActivity : BasePoseActivity() {
     }
 
     private fun captureAndEvaluate() {
+        if (isDestroyed || isFinishing) return
         isGameStarted = false
         
         // Play capture sfx
@@ -292,6 +331,7 @@ class GameFourActivity : BasePoseActivity() {
         object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {}
             override fun onFinish() {
+                if (isDestroyed || isFinishing) return
                 if (currentRound < totalRounds) {
                     currentRound++
                     startRound()
@@ -313,7 +353,8 @@ class GameFourActivity : BasePoseActivity() {
         
         runOnUiThread {
             binding.gameOverLayout.visibility = View.VISIBLE
-            binding.winnerText.visibility = View.GONE // using OverlayView's winner text
+            binding.winnerText.visibility = View.VISIBLE
+            binding.winnerText.text = getString(R.string.winner_text_format, winner)
             binding.overlayView.setWinner(winner)
             
             if (soundIdVictory != 0) soundPool.play(soundIdVictory, 1f, 1f, 1, 0, 1f)
@@ -323,7 +364,18 @@ class GameFourActivity : BasePoseActivity() {
     }
 
     override fun onPoseDetected(playerId: Int, pose: Pose, pXOffset: Float, imgWidth: Int, imgHeight: Int) {
-        if (playerId == 1) latestP1Pose = pose
-        if (playerId == 2) latestP2Pose = pose
+        if (playerId == 1) {
+            latestP1Pose = pose
+            lastP1DetectTime = System.currentTimeMillis()
+        }
+        if (playerId == 2) {
+            latestP2Pose = pose
+            lastP2DetectTime = System.currentTimeMillis()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        (application as KinetiqFunApp).changeMusic(0)
     }
 }

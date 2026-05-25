@@ -1,9 +1,7 @@
 package org.example.kinetiqfun
 
-import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.RectF
-import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -16,33 +14,28 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.content.Context
-import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewTreeObserver
-import android.view.animation.AnimationUtils
-import android.widget.Button
-import android.widget.EditText
+import java.util.concurrent.CopyOnWriteArrayList
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
 import kotlin.math.max
 import androidx.activity.viewModels
-import androidx.lifecycle.Observer
 import org.example.kinetiqfun.TooltipHelper
 import org.example.kinetiqfun.TooltipManager
 
 class KesatriaPCDActivity : BasePoseActivity() {
 
     private val viewModel: GameStateViewModel by viewModels()
-    private val rocks = mutableListOf<OverlayView.Rock>()
+    private val rocks = CopyOnWriteArrayList<OverlayView.Rock>()
     private var nameP1 = "Player 1"
     private var nameP2 = "Player 2"
     private var isInitialized = false
-    private var winner: String? = null
     private var isGameStarted = false
 
-    private val lastHandY = mutableMapOf<Int, Float>()
+    private val lastHandYL = mutableMapOf<Int, Float>()
+    private val lastHandYR = mutableMapOf<Int, Float>()
     
     // Race Mode State
     private val totalRocksGoal = 3
@@ -135,10 +128,15 @@ class KesatriaPCDActivity : BasePoseActivity() {
             val durationMs = mp.duration.toLong()
             tutorialTimer = object : android.os.CountDownTimer(durationMs, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
+                    if (isDestroyed || isFinishing) {
+                        cancel()
+                        return
+                    }
                     val secondsLeft = millisUntilFinished / 1000
                     binding.tutorialCountdownText.text = String.format("%02d", secondsLeft)
                 }
                 override fun onFinish() {
+                    if (isDestroyed || isFinishing) return
                     binding.tutorialCountdownText.text = "00"
                 }
             }.start()
@@ -197,6 +195,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         val handler = Handler(Looper.getMainLooper())
         val checkRunnable = object : Runnable {
             override fun run() {
+                if (isDestroyed || isFinishing) return
                 if (!isWaitingForPlayers) return
                 
                 val now = System.currentTimeMillis()
@@ -246,6 +245,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
             }
 
             override fun onFinish() {
+                if (isDestroyed || isFinishing) return
                 try {
                     toneGen?.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 500)
                 } catch (e: Exception) {}
@@ -329,7 +329,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         if (playerId == 2) lastP2DetectTime = System.currentTimeMillis()
         
         // Continuous check for both players during gameplay
-        if (isGameStarted && winner == null && !isWaitingForPlayers) {
+        if (isGameStarted && viewModel.winner.value == null && !isWaitingForPlayers) {
             val now = System.currentTimeMillis()
             val p1Lost = (now - lastP1DetectTime) > 1500
             val p2Lost = (now - lastP2DetectTime) > 1500
@@ -340,7 +340,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
             }
         }
 
-        if (!isGameStarted || winner != null || isWaitingForPlayers) return
+        if (!isGameStarted || viewModel.winner.value != null || isWaitingForPlayers) return
         
         val overlay = binding.overlayView
         // Only initialize when view has realistic dimensions
@@ -364,8 +364,8 @@ class KesatriaPCDActivity : BasePoseActivity() {
         val wristL = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
         val wristR = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
 
-        val hitL = checkHit(playerId, wristL, ::getScreenX, ::getScreenY)
-        val hitR = checkHit(playerId, wristR, ::getScreenX, ::getScreenY)
+        val hitL = checkHit(playerId, wristL, ::getScreenX, ::getScreenY, true)
+        val hitR = checkHit(playerId, wristR, ::getScreenX, ::getScreenY, false)
         
         // Enhanced visual feedback for hits and breaks
         enhanceVisualFeedback(hitL.first || hitR.first, hitL.second || hitR.second, playerId)
@@ -375,12 +375,12 @@ class KesatriaPCDActivity : BasePoseActivity() {
         }
     }
 
-    private fun checkHit(playerId: Int, landmark: PoseLandmark?, getX: (Float) -> Float, getY: (Float) -> Float): Pair<Boolean, Boolean> {
+    private fun checkHit(playerId: Int, landmark: PoseLandmark?, getX: (Float) -> Float, getY: (Float) -> Float, isLeft: Boolean): Pair<Boolean, Boolean> {
         if (landmark == null || landmark.inFrameLikelihood < 0.5f) return Pair(false, false)
         
         val x = getX(landmark.position.x)
         val y = getY(landmark.position.y)
-        val lastY = lastHandY[playerId] ?: y
+        val lastY = if (isLeft) lastHandYL[playerId] ?: y else lastHandYR[playerId] ?: y
         
         var isHit = false
         var isBreak = false
@@ -438,7 +438,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         }
         
         // Always update last hand Y so we track real movement
-        lastHandY[playerId] = y
+        if (isLeft) lastHandYL[playerId] = y else lastHandYR[playerId] = y
         
         return Pair(isHit, isBreak)
     }

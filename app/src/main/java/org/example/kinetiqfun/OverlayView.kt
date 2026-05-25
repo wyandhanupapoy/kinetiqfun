@@ -3,15 +3,12 @@ package org.example.kinetiqfun
 import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.util.AttributeSet
 import android.view.View
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.withSave
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
-import com.google.mlkit.vision.segmentation.SegmentationMask
-import java.util.*
 import kotlin.math.max
 
 class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
@@ -44,10 +41,6 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     internal val playersPose = mutableMapOf<Int, Pair<Pose, Float>>()
-    private val playersMask = mutableMapOf<Int, SegmentationMask>()
-    
-    private val playerMaskPixels = mutableMapOf<Int, IntArray>()
-    private val playerMaskBitmaps = mutableMapOf<Int, Bitmap>()
     internal val gameTypeface: Typeface? by lazy {
         ResourcesCompat.getFont(context, R.font.game_font)
     }
@@ -91,7 +84,32 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     
     internal var p1Drawable: Drawable? = null
     internal var p2Drawable: Drawable? = null
+
+    init {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            try {
+                val source1 = android.graphics.ImageDecoder.createSource(resources, R.drawable.karakter_kicau_mania)
+                p1Drawable = android.graphics.ImageDecoder.decodeDrawable(source1)
+                (p1Drawable as? android.graphics.drawable.AnimatedImageDrawable)?.let {
+                    it.callback = this
+                    it.start()
+                }
+                
+                val source2 = android.graphics.ImageDecoder.createSource(resources, R.drawable.karakter_kicau_mania)
+                p2Drawable = android.graphics.ImageDecoder.decodeDrawable(source2)
+                (p2Drawable as? android.graphics.drawable.AnimatedImageDrawable)?.let {
+                    it.callback = this
+                    it.start()
+                }
+            } catch (e: Exception) {}
+        } else {
+            val bmp = BitmapFactory.decodeResource(resources, R.drawable.karakter_kicau_mania)
+            p1Drawable = android.graphics.drawable.BitmapDrawable(resources, bmp)
+            p2Drawable = android.graphics.drawable.BitmapDrawable(resources, bmp)
+        }
+    }
     
+
     // Disco Filter
     internal var discoHue = 0f
     internal val discoPaint = Paint().apply { style = Paint.Style.FILL }
@@ -139,12 +157,8 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         strokeWidth = 10f
         style = Paint.Style.STROKE
     }
-    internal val silhouettePaint = Paint().apply {
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
-        style = Paint.Style.FILL_AND_STROKE
-    }
-    internal val torsoPath = Path()
+
+    internal val reusablePath = Path()
     internal val tempRect = RectF()
     internal val tempMatrix = Matrix()
 
@@ -181,10 +195,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     // Screen Shake
     private var shakeIntensity = 0f
 
-    private val maskPaint = Paint().apply {
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
-        isAntiAlias = true
-    }
+
 
     fun setGameMode(mode: GameMode) {
         currentGameMode = mode
@@ -284,20 +295,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
 
-    private fun spawnHitParticles(x: Float, y: Float, color: Int) {
-        for (i in 0..10) {
-            particles.add(Particle(
-                x = x,
-                y = y,
-                vx = (random.nextFloat() - 0.5f) * 30f,
-                vy = (random.nextFloat() - 0.5f) * 30f,
-                size = random.nextFloat() * 15f + 5f,
-                alpha = 255,
-                color = color,
-                life = 20 + random.nextInt(15)
-            ))
-        }
-    }
+
 
     private fun spawnVictoryParticles() {
         for (i in 0 until 120) {
@@ -322,10 +320,9 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
     }
 
-    fun setResults(playerId: Int, pose: Pose?, mask: SegmentationMask?, width: Int, height: Int, isFront: Boolean, xOffset: Float = 0f) {
+    fun setResults(playerId: Int, pose: Pose?, mask: Nothing? = null, width: Int, height: Int, isFront: Boolean, xOffset: Float = 0f) {
         if (pose != null && pose.allPoseLandmarks.size > 15) {
             playersPose[playerId] = Pair(pose, xOffset)
-            if (mask != null) playersMask[playerId] = mask
             
             // Simpan target kamera langsung secara mentah (real-time)
             val playerTarget = targetLandmarks.getOrPut(playerId) { mutableMapOf() }
@@ -427,13 +424,13 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                     ParticleType.SQUARE -> canvas.drawRect(p.x - p.size, p.y - p.size, p.x + p.size, p.y + p.size, particlePaint)
                     ParticleType.STAR -> {
                         // Simple 4-point star/diamond
-                        torsoPath.reset()
-                        torsoPath.moveTo(p.x, p.y - p.size * 1.5f)
-                        torsoPath.lineTo(p.x + p.size, p.y)
-                        torsoPath.lineTo(p.x, p.y + p.size * 1.5f)
-                        torsoPath.lineTo(p.x - p.size, p.y)
-                        torsoPath.close()
-                        canvas.drawPath(torsoPath, particlePaint)
+                        reusablePath.reset()
+                        reusablePath.moveTo(p.x, p.y - p.size * 1.5f)
+                        reusablePath.lineTo(p.x + p.size, p.y)
+                        reusablePath.lineTo(p.x, p.y + p.size * 1.5f)
+                        reusablePath.lineTo(p.x - p.size, p.y)
+                        reusablePath.close()
+                        canvas.drawPath(reusablePath, particlePaint)
                     }
                     ParticleType.SPARK -> {
                         // Line spark
@@ -514,117 +511,6 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 height / 2f + Math.sin(angle).toFloat() * r2,
                 celebrationLinePaint
             )
-        }
-    }
-
-    private fun drawRealisticMask(canvas: Canvas, mask: SegmentationMask, scale: Float, offsetX: Float, offsetY: Float, paint: Paint, playerId: Int) {
-        val maskBuffer = mask.buffer
-        val maskWidth = mask.width
-        val maskHeight = mask.height
-        val pixelCount = maskWidth * maskHeight
-        
-        var pixels = playerMaskPixels[playerId]
-        if (pixels == null || pixels.size != pixelCount) {
-            pixels = IntArray(pixelCount)
-            playerMaskPixels[playerId] = pixels
-            playerMaskBitmaps[playerId]?.recycle()
-            playerMaskBitmaps[playerId] = Bitmap.createBitmap(maskWidth, maskHeight, Bitmap.Config.ARGB_8888)
-        }
-        
-        maskBuffer.rewind()
-        // Super fast bulk pixel writing
-        for (i in 0 until pixelCount) {
-            val confidence = maskBuffer.float
-            pixels[i] = if (confidence > 0.5f) Color.BLACK else Color.TRANSPARENT
-        }
-        
-        val bitmap = playerMaskBitmaps[playerId]!!
-        bitmap.setPixels(pixels, 0, maskWidth, 0, 0, maskWidth, maskHeight)
-        
-        // Handle Mirroring for Front Camera
-        tempMatrix.reset()
-        if (isFrontCamera) {
-            tempMatrix.postScale(-1f, 1f)
-            tempMatrix.postTranslate(maskWidth.toFloat(), 0f)
-        }
-        tempMatrix.postScale(scale, scale)
-        
-        // Calculate screen position
-        val screenX = if (isFrontCamera) {
-            width - (offsetX + maskWidth) * scale
-        } else {
-            offsetX * scale
-        }
-        tempMatrix.postTranslate(screenX, offsetY * scale)
-        
-        canvas.drawBitmap(bitmap, tempMatrix, paint)
-    }
-
-    private fun drawHumanSilhouette(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float, paint: Paint) {
-        val ls = getPos(id, PoseLandmark.LEFT_SHOULDER)
-        val rs = getPos(id, PoseLandmark.RIGHT_SHOULDER)
-        val lh = getPos(id, PoseLandmark.LEFT_HIP)
-        val rh = getPos(id, PoseLandmark.RIGHT_HIP)
-        
-        if (ls == null || rs == null) return
-
-        val shoulderWidth = Math.hypot(
-            (tx(ls.x) - tx(rs.x)).toDouble(),
-            (ty(ls.y) - ty(rs.y)).toDouble()
-        ).toFloat()
-        
-        silhouettePaint.set(paint)
-        silhouettePaint.strokeCap = Paint.Cap.ROUND
-        silhouettePaint.strokeJoin = Paint.Join.ROUND
-        silhouettePaint.style = Paint.Style.FILL_AND_STROKE
-
-        // --- TORSO ---
-        torsoPath.reset()
-        torsoPath.moveTo(tx(ls.x), ty(ls.y))
-        torsoPath.lineTo(tx(rs.x), ty(rs.y))
-        if (rh != null) torsoPath.lineTo(tx(rh.x), ty(rh.y))
-        if (lh != null) torsoPath.lineTo(tx(lh.x), ty(lh.y))
-        torsoPath.close()
-        silhouettePaint.strokeWidth = shoulderWidth * 0.2f
-        canvas.drawPath(torsoPath, silhouettePaint)
-
-        // --- HEAD ---
-        val nose = getPos(id, PoseLandmark.NOSE)
-        if (nose != null) {
-            val headRadius = shoulderWidth * 0.5f
-            canvas.drawCircle(tx(nose.x), ty(nose.y), headRadius, silhouettePaint)
-            
-            // Neck
-            val midShoulderX = (tx(ls.x) + tx(rs.x)) / 2f
-            val midShoulderY = (ty(ls.y) + ty(rs.y)) / 2f
-            silhouettePaint.strokeWidth = shoulderWidth * 0.4f
-            canvas.drawLine(tx(nose.x), ty(nose.y), midShoulderX, midShoulderY, silhouettePaint)
-        }
-
-        // --- LIMBS (Arms and Legs) ---
-        // We use paths or very thick lines to simulate body volume
-        val connections = listOf(
-            Pair(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW),
-            Pair(PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST),
-            Pair(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW),
-            Pair(PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST),
-            Pair(PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE),
-            Pair(PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
-            Pair(PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE),
-            Pair(PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE)
-        )
-
-        for (conn in connections) {
-            val start = getPos(id, conn.first)
-            val end = getPos(id, conn.second)
-            if (start != null && end != null) {
-                // Thicker for upper limbs, slightly thinner for lower
-                val isUpper = conn.first == PoseLandmark.LEFT_SHOULDER || conn.first == PoseLandmark.RIGHT_SHOULDER ||
-                              conn.first == PoseLandmark.LEFT_HIP || conn.first == PoseLandmark.RIGHT_HIP
-                
-                silhouettePaint.strokeWidth = if (isUpper) shoulderWidth * 0.65f else shoulderWidth * 0.5f
-                canvas.drawLine(tx(start.x), ty(start.y), tx(end.x), ty(end.y), silhouettePaint)
-            }
         }
     }
 
@@ -791,47 +677,22 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
     }
 
-    private fun drawRawSkeleton(canvas: Canvas, id: Int, tx: (Float) -> Float, ty: (Float) -> Float) {
-        val data = playersPose[id] ?: return
-        val pose = data.first
-        
-        commonPaint.color = Color.WHITE
-        commonPaint.strokeWidth = 8f
-        commonPaint.style = Paint.Style.STROKE
-        commonPaint.isAntiAlias = true
+    override fun verifyDrawable(who: Drawable): Boolean {
+        return super.verifyDrawable(who) || who === p1Drawable || who === p2Drawable
+    }
 
-        val connections = listOf(
-            Pair(PoseLandmark.LEFT_SHOULDER, PoseLandmark.RIGHT_SHOULDER),
-            Pair(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_ELBOW),
-            Pair(PoseLandmark.LEFT_ELBOW, PoseLandmark.LEFT_WRIST),
-            Pair(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_ELBOW),
-            Pair(PoseLandmark.RIGHT_ELBOW, PoseLandmark.RIGHT_WRIST),
-            Pair(PoseLandmark.LEFT_SHOULDER, PoseLandmark.LEFT_HIP),
-            Pair(PoseLandmark.RIGHT_SHOULDER, PoseLandmark.RIGHT_HIP),
-            Pair(PoseLandmark.LEFT_HIP, PoseLandmark.RIGHT_HIP),
-            Pair(PoseLandmark.LEFT_HIP, PoseLandmark.LEFT_KNEE),
-            Pair(PoseLandmark.LEFT_KNEE, PoseLandmark.LEFT_ANKLE),
-            Pair(PoseLandmark.RIGHT_HIP, PoseLandmark.RIGHT_KNEE),
-            Pair(PoseLandmark.RIGHT_KNEE, PoseLandmark.RIGHT_ANKLE)
-        )
-
-        for (edge in connections) {
-            val start = pose.getPoseLandmark(edge.first)
-            val end = pose.getPoseLandmark(edge.second)
-            if (start != null && end != null && start.inFrameLikelihood > 0.2f && end.inFrameLikelihood > 0.2f) {
-                canvas.drawLine(tx(start.position.x), ty(start.position.y), tx(end.position.x), ty(end.position.y), commonPaint)
-            }
-        }
-        
-        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
-        val leftEar = pose.getPoseLandmark(PoseLandmark.LEFT_EAR)
-        val rightEar = pose.getPoseLandmark(PoseLandmark.RIGHT_EAR)
-        if (nose != null && leftEar != null && rightEar != null) {
-            val radius = java.lang.Math.hypot((tx(leftEar.position.x) - tx(rightEar.position.x)).toDouble(), 
-                                  (ty(leftEar.position.y) - ty(rightEar.position.y)).toDouble()).toFloat() / 1.5f
-            commonPaint.style = Paint.Style.FILL
-            commonPaint.color = Color.parseColor("#80FFFFFF")
-            canvas.drawCircle(tx(nose.position.x), ty(nose.position.y), java.lang.Math.max(radius, 20f), commonPaint)
-        }
+    /** Recycle all loaded bitmaps to free memory. Call from Activity.onDestroy(). */
+    fun recycleBitmaps() {
+        handLeftBitmap.recycle()
+        handRightBitmap.recycle()
+        head1Bitmap.recycle()
+        head2Bitmap.recycle()
+        body1Bitmap.recycle()
+        body2Bitmap.recycle()
+        shoulder1LeftBitmap.recycle()
+        shoulder1RightBitmap.recycle()
+        shoulder2LeftBitmap.recycle()
+        shoulder2RightBitmap.recycle()
+        boxBitmap.recycle()
     }
 }

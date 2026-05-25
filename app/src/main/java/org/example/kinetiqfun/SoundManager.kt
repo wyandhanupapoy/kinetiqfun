@@ -31,4 +31,9 @@ object SoundManager {
     fun playTransition() {
         if (transitionSoundId != 0) soundPool?.play(transitionSoundId, 1f, 1f, 1, 0, 1f)
     }
+
+    fun release() {
+        soundPool?.release()
+        soundPool = null
+    }
 }

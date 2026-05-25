@@ -149,6 +149,33 @@
             android:shadowRadius="10"
             android:text="PLAYER WINS!" />
 
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnPlayAgain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Main Lagi"
+                android:fontFamily="@font/game_font"
+                android:textSize="24sp"
+                android:textColor="@android:color/white"
+                android:backgroundTint="@color/colorPrimary"
+                android:layout_marginEnd="16dp"/>
+
+            <Button
+                android:id="@+id/btnBackMenu"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Menu"
+                android:fontFamily="@font/game_font"
+                android:textSize="24sp"
+                android:textColor="@android:color/white"
+                android:backgroundTint="@color/colorAccent"/>
+        </LinearLayout>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

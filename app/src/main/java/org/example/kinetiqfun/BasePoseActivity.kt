@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
-import android.app.AlertDialog
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.view.WindowManager
@@ -22,17 +21,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.gms.tasks.Tasks
-import androidx.camera.mlkit.vision.MlKitAnalyzer
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
-import com.google.mlkit.vision.pose.PoseDetector
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
-import com.google.mlkit.vision.segmentation.Segmentation
-import com.google.mlkit.vision.segmentation.Segmenter
-import com.google.mlkit.vision.segmentation.SegmentationMask
-import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import org.example.kinetiqfun.databinding.ActivityMainBinding
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -51,17 +42,6 @@ abstract class BasePoseActivity : AppCompatActivity() {
     private val poseDetector2 = PoseDetection.getClient(
         AccuratePoseDetectorOptions.Builder()
             .setDetectorMode(AccuratePoseDetectorOptions.STREAM_MODE)
-            .build()
-    )
-
-    private val segmenter1 = Segmentation.getClient(
-        SelfieSegmenterOptions.Builder()
-            .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
-            .build()
-    )
-    private val segmenter2 = Segmentation.getClient(
-        SelfieSegmenterOptions.Builder()
-            .setDetectorMode(SelfieSegmenterOptions.STREAM_MODE)
             .build()
     )
 
@@ -96,15 +76,26 @@ abstract class BasePoseActivity : AppCompatActivity() {
             .setAudioAttributes(audioAttributes)
             .build()
         
-        // Load sounds from res/raw safely to avoid build errors if they don't exist yet
-        // val actionId = resources.getIdentifier("box_crack", "raw", packageName)
-        // if (actionId != 0) soundIdAction = soundPool.load(this, actionId, 1)
+        // Load hit/action sound effect
+        val actionId = resources.getIdentifier("box_crack", "raw", packageName)
+        if (actionId != 0) soundIdAction = soundPool.load(this, actionId, 1)
 
         val victoryId = resources.getIdentifier("win_sfx", "raw", packageName)
         if (victoryId != 0) soundIdVictory = soundPool.load(this, victoryId, 1)
         else {
             val oldVictoryId = resources.getIdentifier("victory", "raw", packageName)
             if (oldVictoryId != 0) soundIdVictory = soundPool.load(this, oldVictoryId, 1)
+        }
+        
+        binding.btnPlayAgain.setOnClickListener {
+            SoundManager.playClick()
+            recreate()
+        }
+        
+        binding.btnBackMenu.setOnClickListener {
+            SoundManager.playClick()
+            (application as KinetiqFunApp).changeMusic(0) // Default BGM
+            finish()
         }
 
         if (allPermissionsGranted()) {
@@ -238,8 +229,6 @@ abstract class BasePoseActivity : AppCompatActivity() {
                 .build()
                 .also { it.setSurfaceProvider(binding.previewView.surfaceProvider) }
 
-            // Optimized Analyzer using manual ImageAnalysis but with direct InputImage.fromMediaImage
-            // to avoid extra Bitmap allocations while maintaining control over the flow.
             val imageAnalyzer = ImageAnalysis.Builder()
                 .setTargetAspectRatio(aspectRatio)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -258,47 +247,84 @@ abstract class BasePoseActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    /**
+     * Splits the camera frame into left/right halves and runs a separate pose detector
+     * on each half. This is necessary because ML Kit's single-person pose detector
+     * only detects ONE person per image — running two detectors on the same full image
+     * would return the same pose for both players.
+     */
     @OptIn(ExperimentalGetImage::class)
     private fun processMultiplayer(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image ?: run { imageProxy.close(); return }
         val rotation = imageProxy.imageInfo.rotationDegrees
-        
-        // Use InputImage.fromMediaImage directly - NO BITMAP CONVERSION HERE
-        val fullInputImage = InputImage.fromMediaImage(mediaImage, rotation)
-        
-        val width = if (rotation == 90 || rotation == 270) imageProxy.height else imageProxy.width
-        val height = if (rotation == 90 || rotation == 270) imageProxy.width else imageProxy.height
-        
-        // Current logic splits screen in two for 2 players.
-        // To avoid Bitmaps, we pass the full image to both detectors.
-        // We will filter landmarks in OverlayView based on their X coordinate.
+
+        // toBitmap() is stable in CameraX 1.4.x — returns the raw sensor image as Bitmap
+        val rawBitmap: Bitmap
+        try {
+            rawBitmap = imageProxy.toBitmap()
+        } catch (e: Exception) {
+            imageProxy.close()
+            return
+        }
+
+        // Apply rotation so the bitmap matches what the user sees
+        val rotatedBitmap = if (rotation != 0) {
+            val matrix = Matrix()
+            matrix.postRotate(rotation.toFloat())
+            Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true).also {
+                if (it !== rawBitmap) rawBitmap.recycle()
+            }
+        } else {
+            rawBitmap
+        }
+
+        val fullWidth = rotatedBitmap.width
+        val fullHeight = rotatedBitmap.height
+        val halfWidth = fullWidth / 2
+
+        // Split into left and right halves
+        val leftHalf = Bitmap.createBitmap(rotatedBitmap, 0, 0, halfWidth, fullHeight)
+        val rightHalf = Bitmap.createBitmap(rotatedBitmap, halfWidth, 0, fullWidth - halfWidth, fullHeight)
+
+        // For front camera the image is mirrored:
+        //   Screen-left (P1) = raw image RIGHT half
+        //   Screen-right (P2) = raw image LEFT half
+        // For back camera it's direct:
+        //   Screen-left (P1) = raw image LEFT half
+        //   Screen-right (P2) = raw image RIGHT half
+        val p1Half = if (isFrontCamera) rightHalf else leftHalf
+        val p2Half = if (isFrontCamera) leftHalf else rightHalf
+        val p1Offset = if (isFrontCamera) halfWidth.toFloat() else 0f
+        val p2Offset = if (isFrontCamera) 0f else halfWidth.toFloat()
+
+        val p1Input = com.google.mlkit.vision.common.InputImage.fromBitmap(p1Half, 0)
+        val p2Input = com.google.mlkit.vision.common.InputImage.fromBitmap(p2Half, 0)
 
         var p1Pose: Pose? = null
-        var p1Mask: SegmentationMask? = null
         var p2Pose: Pose? = null
-        var p2Mask: SegmentationMask? = null
 
-        val task1Pose = poseDetector1.process(fullInputImage).addOnSuccessListener { p1Pose = it }
-        val task1Mask = segmenter1.process(fullInputImage).addOnSuccessListener { p1Mask = it }
-        val task2Pose = poseDetector2.process(fullInputImage).addOnSuccessListener { p2Pose = it }
-        val task2Mask = segmenter2.process(fullInputImage).addOnSuccessListener { p2Mask = it }
+        val task1 = poseDetector1.process(p1Input).addOnSuccessListener { p1Pose = it }
+        val task2 = poseDetector2.process(p2Input).addOnSuccessListener { p2Pose = it }
 
-        Tasks.whenAllComplete(task1Pose, task1Mask, task2Pose, task2Mask).addOnCompleteListener {
+        Tasks.whenAllComplete(task1, task2).addOnCompleteListener {
             if (p1Pose != null && PoseEvaluator.isLikelyHuman(p1Pose!!)) {
-                // We pass 0f as offset because we are processing full image now
-                binding.overlayView.setResults(1, p1Pose, p1Mask, width, height, isFrontCamera, 0f)
-                onPoseDetected(1, p1Pose!!, 0f, width, height)
+                binding.overlayView.setResults(1, p1Pose, null, fullWidth, fullHeight, isFrontCamera, p1Offset)
+                onPoseDetected(1, p1Pose!!, p1Offset, fullWidth, fullHeight)
             } else {
-                binding.overlayView.setResults(1, null, null, width, height, isFrontCamera, 0f)
+                binding.overlayView.setResults(1, null, null, fullWidth, fullHeight, isFrontCamera, 0f)
             }
 
             if (p2Pose != null && PoseEvaluator.isLikelyHuman(p2Pose!!)) {
-                binding.overlayView.setResults(2, p2Pose, p2Mask, width, height, isFrontCamera, 0f)
-                onPoseDetected(2, p2Pose!!, 0f, width, height)
+                binding.overlayView.setResults(2, p2Pose, null, fullWidth, fullHeight, isFrontCamera, p2Offset)
+                onPoseDetected(2, p2Pose!!, p2Offset, fullWidth, fullHeight)
             } else {
-                binding.overlayView.setResults(2, null, null, width, height, isFrontCamera, 0f)
+                binding.overlayView.setResults(2, null, null, fullWidth, fullHeight, isFrontCamera, 0f)
             }
-            
+
+            // Recycle all intermediate bitmaps
+            leftHalf.recycle()
+            rightHalf.recycle()
+            rotatedBitmap.recycle()
+
             imageProxy.close()
         }
     }
@@ -323,9 +349,10 @@ abstract class BasePoseActivity : AppCompatActivity() {
         cameraExecutor.shutdown()
         poseDetector1.close()
         poseDetector2.close()
-        segmenter1.close()
-        segmenter2.close()
         soundPool.release()
+        try {
+            binding.overlayView.recycleBitmaps()
+        } catch (e: Exception) {}
     }
 
     companion object {

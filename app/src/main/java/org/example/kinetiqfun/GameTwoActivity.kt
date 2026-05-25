@@ -95,10 +95,15 @@ class GameTwoActivity : BasePoseActivity() {
             val durationMs = mp.duration.toLong()
             tutorialTimer = object : CountDownTimer(durationMs, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
+                    if (isDestroyed || isFinishing) {
+                        cancel()
+                        return
+                    }
                     val secondsLeft = millisUntilFinished / 1000
                     binding.tutorialCountdownText.text = String.format("%02d", secondsLeft)
                 }
                 override fun onFinish() {
+                    if (isDestroyed || isFinishing) return
                     binding.tutorialCountdownText.text = "00"
                 }
             }.start()
@@ -146,6 +151,7 @@ class GameTwoActivity : BasePoseActivity() {
         val handler = Handler(Looper.getMainLooper())
         val checkRunnable = object : Runnable {
             override fun run() {
+                if (isDestroyed || isFinishing) return
                 if (!isWaitingForPlayers) return
                 
                 val now = System.currentTimeMillis()
@@ -190,6 +196,7 @@ class GameTwoActivity : BasePoseActivity() {
             }
             
             override fun onFinish() {
+                if (isDestroyed || isFinishing) return
                 binding.countdownText.visibility = View.GONE
                 isGameStarted = true
                 toneGen?.release()
@@ -267,9 +274,18 @@ class GameTwoActivity : BasePoseActivity() {
     private fun showWinner() {
         runOnUiThread {
             binding.gameOverLayout.visibility = View.VISIBLE
-            binding.winnerText.visibility = View.GONE
+            binding.winnerText.visibility = View.VISIBLE
             
-
+            winner?.let {
+                binding.winnerText.text = getString(R.string.winner_text_format, it)
+                binding.overlayView.setWinner(it)
+            }
+            if (soundIdVictory != 0) soundPool.play(soundIdVictory, 1f, 1f, 1, 0, 1f)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        (application as KinetiqFunApp).changeMusic(0)
     }
 }
