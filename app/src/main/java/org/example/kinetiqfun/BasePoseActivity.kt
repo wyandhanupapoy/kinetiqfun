@@ -3,6 +3,7 @@ package org.example.kinetiqfun
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
@@ -115,15 +116,92 @@ abstract class BasePoseActivity : AppCompatActivity() {
         
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                AlertDialog.Builder(this@BasePoseActivity)
-                    .setTitle("Quit Game")
-                    .setMessage("Are you sure you want to quit this game?")
-                    .setPositiveButton("Yes") { _, _ ->
+                val dialog = android.app.Dialog(this@BasePoseActivity)
+                dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+                dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                
+                val rootLayout = android.widget.LinearLayout(this@BasePoseActivity).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER
+                    setBackgroundColor(Color.parseColor("#E6000000")) // Semi-transparent black
+                    setPadding(64, 64, 64, 64)
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+
+                val typeface = androidx.core.content.res.ResourcesCompat.getFont(this@BasePoseActivity, R.font.game_font)
+
+                val titleText = android.widget.TextView(this@BasePoseActivity).apply {
+                    text = "QUIT GAME"
+                    setTextColor(Color.parseColor("#FF4444"))
+                    textSize = 48f
+                    setTypeface(typeface)
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(0, 0, 0, 32)
+                }
+                
+                val msgText = android.widget.TextView(this@BasePoseActivity).apply {
+                    text = "Are you sure you want to quit this game?"
+                    setTextColor(Color.WHITE)
+                    textSize = 24f
+                    setTypeface(typeface)
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(0, 0, 0, 48)
+                }
+
+                val buttonsLayout = android.widget.LinearLayout(this@BasePoseActivity).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER
+                }
+
+                val btnNo = android.widget.Button(this@BasePoseActivity).apply {
+                    text = "NO"
+                    setTextColor(Color.WHITE)
+                    setBackgroundColor(Color.DKGRAY)
+                    textSize = 24f
+                    setTypeface(typeface)
+                    setPadding(32, 16, 32, 16)
+                    setOnClickListener {
+                        SoundManager.playClick()
+                        dialog.dismiss()
+                    }
+                }
+
+                val btnYes = android.widget.Button(this@BasePoseActivity).apply {
+                    text = "YES"
+                    setTextColor(Color.WHITE)
+                    setBackgroundColor(Color.parseColor("#FF4444"))
+                    textSize = 24f
+                    setTypeface(typeface)
+                    setPadding(32, 16, 32, 16)
+                    val params = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { setMargins(32, 0, 0, 0) }
+                    layoutParams = params
+                    setOnClickListener {
+                        SoundManager.playClick()
+                        dialog.dismiss()
                         (application as KinetiqFunApp).changeMusic(R.raw.background_music)
                         finish()
                     }
-                    .setNegativeButton("No", null)
-                    .show()
+                }
+
+                buttonsLayout.addView(btnNo)
+                buttonsLayout.addView(btnYes)
+
+                rootLayout.addView(titleText)
+                rootLayout.addView(msgText)
+                rootLayout.addView(buttonsLayout)
+
+                dialog.setContentView(rootLayout)
+                dialog.window?.setLayout(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                dialog.show()
             }
         })
     }

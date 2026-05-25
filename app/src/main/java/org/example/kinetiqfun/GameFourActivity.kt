@@ -255,14 +255,7 @@ class GameFourActivity : BasePoseActivity() {
             
             if (soundIdVictory != 0) soundPool.play(soundIdVictory, 1f, 1f, 1, 0, 1f)
             
-            binding.btnRetry.setOnClickListener {
-                binding.gameOverLayout.visibility = View.GONE
-                binding.overlayView.resetGame()
-                startGame()
-            }
-            binding.btnMainMenu.setOnClickListener {
-                finish()
-            }
+
         }
     }
 

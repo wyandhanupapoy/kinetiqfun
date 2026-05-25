@@ -147,35 +147,6 @@
             android:shadowRadius="10"
             android:text="PLAYER WINS!" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnRetry"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="24dp"
-                android:text="Retry"
-                android:textSize="24sp"
-                android:fontFamily="@font/game_font"
-                android:paddingVertical="12dp"
-                android:paddingHorizontal="24dp"
-                app:cornerRadius="16dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnMainMenu"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Main Menu"
-                android:textSize="24sp"
-                android:fontFamily="@font/game_font"
-                android:paddingVertical="12dp"
-                android:paddingHorizontal="24dp"
-                app:cornerRadius="16dp"
-                app:backgroundTint="@color/colorAccent" />
-        </LinearLayout>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

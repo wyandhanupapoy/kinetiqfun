@@ -402,21 +402,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
                 }
                 handler.post(flashRunnable)
                 
-                binding.btnRetry.setOnClickListener {
-                    SoundManager.playClick()
-                    p1DestroyedCount = 0
-                    p2DestroyedCount = 0
-                    winner = null
-                    isGameStarted = false
-                    binding.gameOverLayout.visibility = View.GONE
-                    initRocks(binding.overlayView.width, binding.overlayView.height)
-                    startWaitingForPlayers() // Restart waiting phase instead of straight countdown
-                }
-                
-                binding.btnMainMenu.setOnClickListener {
-                    SoundManager.playClick()
-                    finish() // Close activity, returns to menu
-                }
+
             }
         }
     }

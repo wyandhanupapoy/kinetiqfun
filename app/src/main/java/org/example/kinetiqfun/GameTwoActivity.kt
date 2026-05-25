@@ -269,22 +269,7 @@ class GameTwoActivity : BasePoseActivity() {
             binding.gameOverLayout.visibility = View.VISIBLE
             binding.winnerText.visibility = View.GONE
             
-            binding.btnRetry.setOnClickListener {
-                p1Progress = 0f
-                p2Progress = 0f
-                winner = null
-                lastP1HipX = 0f
-                lastP2HipX = 0f
-                binding.gameOverLayout.visibility = View.GONE
-                
-                isGameStarted = false
-                startWaitingForPlayers()
-            }
-            
-            binding.btnMainMenu.setOnClickListener {
-                SoundManager.playClick()
-                finish()
-            }
+
         }
     }
 }
