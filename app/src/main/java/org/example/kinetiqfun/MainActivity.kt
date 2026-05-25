@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
 
         val task1 = poseDetector1.process(fullInputImage)
             .addOnSuccessListener { pose ->
-                if (pose.allPoseLandmarks.size > 15) {
+                if (PoseEvaluator.isLikelyHuman(pose)) {
                     binding.overlayView.setResults(1, pose, null, width, height, isFrontCamera, 0f)
                     onPoseDetected(1, pose, 0f, width, height)
                 } else {
@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
 
         val task2 = poseDetector2.process(fullInputImage)
             .addOnSuccessListener { pose ->
-                if (pose.allPoseLandmarks.size > 15) {
+                if (PoseEvaluator.isLikelyHuman(pose)) {
                     binding.overlayView.setResults(2, pose, null, width, height, isFrontCamera, 0f)
                     onPoseDetected(2, pose, 0f, width, height)
                 } else {

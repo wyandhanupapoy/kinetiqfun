@@ -284,14 +284,19 @@ abstract class BasePoseActivity : AppCompatActivity() {
         val task2Mask = segmenter2.process(fullInputImage).addOnSuccessListener { p2Mask = it }
 
         Tasks.whenAllComplete(task1Pose, task1Mask, task2Pose, task2Mask).addOnCompleteListener {
-            if (p1Pose != null) {
+            if (p1Pose != null && PoseEvaluator.isLikelyHuman(p1Pose!!)) {
                 // We pass 0f as offset because we are processing full image now
                 binding.overlayView.setResults(1, p1Pose, p1Mask, width, height, isFrontCamera, 0f)
                 onPoseDetected(1, p1Pose!!, 0f, width, height)
+            } else {
+                binding.overlayView.setResults(1, null, null, width, height, isFrontCamera, 0f)
             }
-            if (p2Pose != null) {
+
+            if (p2Pose != null && PoseEvaluator.isLikelyHuman(p2Pose!!)) {
                 binding.overlayView.setResults(2, p2Pose, p2Mask, width, height, isFrontCamera, 0f)
                 onPoseDetected(2, p2Pose!!, 0f, width, height)
+            } else {
+                binding.overlayView.setResults(2, null, null, width, height, isFrontCamera, 0f)
             }
             
             imageProxy.close()

@@ -74,4 +74,43 @@ object PoseEvaluator {
         
         return (totalSimilarity / featuresA.size) * 100f
     }
+
+    /**
+     * Validates if a detected pose is likely a real human based on confidence scores
+     * and the presence of key landmarks (shoulders, hips, and facial features).
+     */
+    fun isLikelyHuman(pose: Pose): Boolean {
+        val landmarks = pose.allPoseLandmarks
+        if (landmarks.size < 15) return false
+
+        // Check essential body parts with a confidence threshold
+        val minConfidence = 0.65f
+        
+        val essentialParts = listOf(
+            PoseLandmark.LEFT_SHOULDER,
+            PoseLandmark.RIGHT_SHOULDER,
+            PoseLandmark.LEFT_HIP,
+            PoseLandmark.RIGHT_HIP
+        )
+
+        for (partType in essentialParts) {
+            val landmark = pose.getPoseLandmark(partType)
+            if (landmark == null || landmark.inFrameLikelihood < minConfidence) {
+                return false
+            }
+        }
+
+        // Check if at least one facial landmark is high confidence (to ensure facing camera)
+        val faceConfidence = 0.7f
+        val facialParts = listOf(PoseLandmark.NOSE, PoseLandmark.LEFT_EYE, PoseLandmark.RIGHT_EYE)
+        val hasGoodFace = facialParts.any { 
+            pose.getPoseLandmark(it)?.let { it.inFrameLikelihood > faceConfidence } ?: false 
+        }
+
+        if (!hasGoodFace) return false
+
+        // Calculate average confidence for all detected landmarks
+        val avgConfidence = landmarks.map { it.inFrameLikelihood }.average()
+        return avgConfidence > 0.5
+    }
 }
