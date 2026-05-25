@@ -1,8 +1,10 @@
 package org.example.kinetiqfun
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.LayoutInflater
@@ -15,7 +17,6 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.defaults.PoseDetectorOptions
-import android.graphics.BitmapFactory
 
 class GameFourActivity : BasePoseActivity() {
 
@@ -59,6 +60,9 @@ class GameFourActivity : BasePoseActivity() {
     
     private var currentTargetDrawableId = 0
     private var isGameStarted = false
+    
+    private var isTutorialFinished = false
+    private var isModelLoaded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,9 +83,7 @@ class GameFourActivity : BasePoseActivity() {
         txtP2Sim = overlayView.findViewById(R.id.txtP2Sim)
         txtRoundWinner = overlayView.findViewById(R.id.txtRoundWinner)
 
-        // For now, no background music or a specific one. Let's use upbeat.
-        (application as KinetiqFunApp).changeMusic(R.raw.tiru_gaya)
-        
+
         // Tell OverlayView to draw Tiru Gaya mode (which can just be standard skeletons)
         binding.overlayView.setGameMode(OverlayView.GameMode.TIRU_GAYA)
         
@@ -89,6 +91,9 @@ class GameFourActivity : BasePoseActivity() {
 
         // Pre-process all target poses
         loadTargetPoses()
+        
+        // Play tutorial
+        playTutorial()
     }
 
     private fun loadTargetPoses() {
@@ -118,13 +123,59 @@ class GameFourActivity : BasePoseActivity() {
                 .addOnCompleteListener {
                     loadedCount++
                     if (loadedCount == poseImages.size) {
-                        startGame()
+                        isModelLoaded = true
+                        checkStartGame()
                     }
                 }
         }
     }
 
+    private fun checkStartGame() {
+        if (isTutorialFinished && isModelLoaded) {
+            startGame()
+        }
+    }
+
+    private fun playTutorial() {
+        val videoPath = "android.resource://$packageName/${R.raw.tutorial_tiru_gaya}"
+        binding.tutorialVideoView.setVideoURI(Uri.parse(videoPath))
+        binding.tutorialVideoView.setZOrderMediaOverlay(true)
+        binding.tutorialVideoContainer.visibility = View.VISIBLE
+        binding.tutorialVideoView.start()
+        
+        var tutorialTimer: android.os.CountDownTimer? = null
+        
+        binding.tutorialVideoView.setOnPreparedListener { mp ->
+            val durationMs = mp.duration.toLong()
+            tutorialTimer = object : android.os.CountDownTimer(durationMs, 1000) {
+                override fun onTick(millisUntilFinished: Long) {
+                    val secondsLeft = millisUntilFinished / 1000
+                    binding.tutorialCountdownText.text = String.format("%02d", secondsLeft)
+                }
+                override fun onFinish() {
+                    binding.tutorialCountdownText.text = "00"
+                }
+            }.start()
+        }
+        
+        binding.tutorialVideoView.setOnCompletionListener {
+            tutorialTimer?.cancel()
+            binding.tutorialVideoContainer.visibility = View.GONE
+            isTutorialFinished = true
+            checkStartGame()
+        }
+        
+        binding.tutorialVideoView.setOnErrorListener { _, _, _ ->
+            tutorialTimer?.cancel()
+            binding.tutorialVideoContainer.visibility = View.GONE
+            isTutorialFinished = true
+            checkStartGame()
+            true
+        }
+    }
+
     private fun startGame() {
+        (application as KinetiqFunApp).changeMusic(R.raw.tiru_gaya)
         roundOrder = targetFeaturesMap.keys.shuffled()
         currentRound = 1
         p1Score = 0
