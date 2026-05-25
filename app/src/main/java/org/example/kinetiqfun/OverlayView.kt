@@ -85,7 +85,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         var shakeAmount: Float = 0f
     )
 
-    enum class GameMode { KESATRIA, FIGHTER, BALAP_GEOL, NONE }
+    enum class GameMode { KESATRIA, BALAP_GEOL, TIRU_GAYA, NONE }
     var currentGameMode = GameMode.KESATRIA
 
     private var balapP1Progress = 0f
@@ -141,7 +141,25 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         isAntiAlias = true
     }
 
-    fun updateKesatriaState(newRocks: List<Rock>, p1Score: Int, p2Score: Int, p1Name: String, p2Name: String, winName: String?) {
+    fun setGameMode(mode: GameMode) {
+        currentGameMode = mode
+        postInvalidate()
+    }
+
+    fun setWinner(winName: String) {
+        this.winner = winName
+        spawnVictoryParticles()
+        postInvalidateOnAnimation()
+    }
+
+    fun resetGame() {
+        this.winner = null
+        this.winSoundPlayed = false
+        this.particles.clear()
+        postInvalidate()
+    }
+
+    fun updateGameState(fallingRocks: List<Rock>, scoreP1: Int, scoreP2: Int, nP1: String, nP2: String, win: String?) {
         if (currentGameMode != GameMode.KESATRIA) {
             gameStartTime = System.currentTimeMillis()
             winSoundPlayed = false
@@ -149,16 +167,16 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         currentGameMode = GameMode.KESATRIA
         
         // Deep copy rocks to avoid concurrent modification and reference sharing bugs
-        this.rocks = newRocks.map { it.copy(rect = RectF(it.rect)) }.toMutableList()
+        this.rocks = fallingRocks.map { it.copy(rect = RectF(it.rect)) }.toMutableList()
         
-        this.scoreP1 = p1Score
-        this.scoreP2 = p2Score
-        this.nameP1 = p1Name
-        this.nameP2 = p2Name
-        if (winName != null && this.winner == null) {
+        this.scoreP1 = scoreP1
+        this.scoreP2 = scoreP2
+        this.nameP1 = nP1
+        this.nameP2 = nP2
+        if (win != null && this.winner == null) {
             spawnVictoryParticles()
         }
-        this.winner = winName
+        this.winner = win
         postInvalidateOnAnimation()
     }
     
@@ -219,29 +237,6 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         postInvalidate()
     }
 
-
-    fun updateFighterState(projs: List<Projectile>, h1: Int, h2: Int, p1Name: String, p2Name: String, winName: String?) {
-        if (currentGameMode != GameMode.FIGHTER) {
-            gameStartTime = System.currentTimeMillis()
-            winSoundPlayed = false
-        }
-        currentGameMode = GameMode.FIGHTER
-        
-        if (h1 < this.hpP1) spawnHitParticles(width * 0.25f, height * 0.5f, Color.RED)
-        if (h2 < this.hpP2) spawnHitParticles(width * 0.75f, height * 0.5f, Color.RED)
-
-        projectiles.clear()
-        projectiles.addAll(projs)
-        hpP1 = h1
-        hpP2 = h2
-        this.nameP1 = p1Name
-        this.nameP2 = p2Name
-        if (winName != null && this.winner == null) {
-            spawnVictoryParticles()
-        }
-        this.winner = winName
-        postInvalidateOnAnimation()
-    }
 
     private fun spawnHitParticles(x: Float, y: Float, color: Int) {
         for (i in 0..10) {
@@ -329,38 +324,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val canvasOffsetY = (height - imageHeight * scale) / 2f
 
         // --- LAYER 1: Background Masking ---
-        if (currentGameMode != GameMode.BALAP_GEOL) {
-            // Kita menggambar background warna, lalu "melubangi" dengan siluet pemain
-            val maskLayer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
-            
-            // Draw split backgrounds
-            val bgPaint = Paint().apply { style = Paint.Style.FILL }
-            
-            // Left Background (Pinkish/Purple)
-            bgPaint.color = Color.parseColor("#99D1A7D1") // ~60% Opacity
-            canvas.drawRect(0f, 0f, width / 2f, height.toFloat(), bgPaint)
-            
-            // Right Background (Greenish)
-            bgPaint.color = Color.parseColor("#99A7D1B8") // ~60% Opacity
-            canvas.drawRect(width / 2f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-
-            // "Punch holes" for each player using silhouette
-            playersPose.forEach { (id, poseData) ->
-                val mask = playersMask[id]
-                if (mask != null) {
-                    // Use REALISTIC segmentation mask if available
-                    drawRealisticMask(canvas, mask, scale, poseData.second, 0f, maskPaint, id)
-                } else {
-                    // Fallback to silhouette if mask is null
-                    drawHumanSilhouette(canvas, id, { x ->
-                        var sx = (x + (if(id==1) 0f else 0.5f)) * scale + canvasOffsetX
-                        if (isFrontCamera) sx = width - sx
-                        sx
-                    }, { y -> y * scale + canvasOffsetY }, maskPaint)
-                }
-            }
-            canvas.restoreToCount(maskLayer)
-        }
+        // Background has been removed as requested
 
         // Apply Screen Shake for everything above background
         if (shakeIntensity > 0) {
@@ -381,59 +345,12 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
         canvas.drawLine(width / 2f, 0f, width / 2f, height.toFloat(), dashedPaint)
 
-        if (currentGameMode == GameMode.KESATRIA) {
-            val hpPaint = Paint().apply {
-                color = Color.YELLOW
-                textSize = 35f
-                isFakeBoldText = true
-                typeface = gameTypeface
-                setShadowLayer(5f, 0f, 0f, Color.BLACK)
-                textAlign = Paint.Align.CENTER
-            }
-
-            rocks.forEach { rock ->
-                if (!rock.isDestroyed) {
-                    val currentHP = 5 - rock.hits
-                    
-                    // Draw HP Text above the box
-                    canvas.drawText("HP: $currentHP", rock.rect.centerX(), rock.rect.top - 10f, hpPaint)
-
-                    if (rock.shakeAmount > 0) {
-                        val sx = (Math.random().toFloat() - 0.5f) * rock.shakeAmount
-                        val offsetRect = RectF(rock.rect)
-                        offsetRect.offset(sx, 0f) // Shake horizontally
-                        canvas.drawBitmap(boxBitmap, null, offsetRect, null)
-                        rock.shakeAmount -= 2f
-                        invalidate()
-                    } else {
-                        canvas.drawBitmap(boxBitmap, null, rock.rect, null)
-                    }
-                }
-            }
-        }
-
-        playersPose.forEach { (id, data) ->
-            val (_, pXOffset) = data
-            val tx = { x: Float -> 
-                var sx = (x + pXOffset) * scale + canvasOffsetX
-                if (isFrontCamera) sx = width - sx
-                sx
-            }
-            val ty = { y: Float -> y * scale + canvasOffsetY }
-            
-            if (currentGameMode == GameMode.BALAP_GEOL) {
-                drawRawSkeleton(canvas, id, tx, ty)
-            } else {
-                val ls = getPos(id, PoseLandmark.LEFT_SHOULDER)
-                val rs = getPos(id, PoseLandmark.RIGHT_SHOULDER)
-                if (ls != null && rs != null) {
-                    val sw = Math.hypot((tx(ls.x) - tx(rs.x)).toDouble(), (ty(ls.y) - ty(rs.y)).toDouble()).toFloat()
-                    drawBody(canvas, id, tx, ty, sw * 1.55f)
-                    drawShoulders(canvas, id, tx, ty, sw)
-                    drawHands(canvas, id, tx, ty, sw * 0.48f)
-                    drawHead(canvas, id, tx, ty, sw * 0.95f)
-                }
-            }
+        // Draw Game Content
+        when (currentGameMode) {
+            GameMode.KESATRIA -> drawKesatriaPCD(canvas)
+            GameMode.BALAP_GEOL -> drawBalapGeol(canvas)
+            GameMode.TIRU_GAYA -> drawTiruGaya(canvas)
+            GameMode.NONE -> {}
         }
 
         drawHUD(canvas)
@@ -477,16 +394,65 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 canvas.drawText(ft.text, ft.x, ft.y, floatTextPaint)
             }
         }
+        
+        if (currentGameMode == GameMode.KESATRIA && rocks.any { !it.isDestroyed && it.rect.bottom < height * 0.85f }) postInvalidateOnAnimation()
+        if (currentGameMode == GameMode.KESATRIA && projectiles.isNotEmpty()) postInvalidateOnAnimation()
+        if (particles.isNotEmpty() || floatingTexts.isNotEmpty() || shakeIntensity > 0 || needsAnimation || winner != null) postInvalidateOnAnimation()
+    }
 
-        when (currentGameMode) {
-            GameMode.FIGHTER -> drawFighterOverlay(canvas)
-            GameMode.BALAP_GEOL -> drawBalapGeol(canvas)
-            else -> {}
+    private fun drawTiruGaya(canvas: Canvas) {
+        // As requested, no skeleton is visualized in Tiru Gaya
+    }
+
+    private fun drawKesatriaPCD(canvas: Canvas) {
+        val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
+        val canvasOffsetX = (width - imageWidth * scale) / 2f
+        val canvasOffsetY = (height - imageHeight * scale) / 2f
+
+        val hpPaint = Paint().apply {
+            color = Color.YELLOW
+            textSize = 35f
+            isFakeBoldText = true
+            typeface = gameTypeface
+            setShadowLayer(5f, 0f, 0f, Color.BLACK)
+            textAlign = Paint.Align.CENTER
         }
 
-        if (currentGameMode == GameMode.KESATRIA && rocks.any { !it.isDestroyed && it.rect.bottom < height * 0.85f }) postInvalidateOnAnimation()
-        if (currentGameMode == GameMode.FIGHTER && projectiles.isNotEmpty()) postInvalidateOnAnimation()
-        if (particles.isNotEmpty() || floatingTexts.isNotEmpty() || shakeIntensity > 0 || needsAnimation || winner != null) postInvalidateOnAnimation()
+        rocks.forEach { rock ->
+            if (!rock.isDestroyed) {
+                val currentHP = 5 - rock.hits
+                canvas.drawText("HP: $currentHP", rock.rect.centerX(), rock.rect.top - 10f, hpPaint)
+
+                if (rock.shakeAmount > 0) {
+                    val sx = (Math.random().toFloat() - 0.5f) * rock.shakeAmount
+                    val offsetRect = RectF(rock.rect)
+                    offsetRect.offset(sx, 0f)
+                    canvas.drawBitmap(boxBitmap, null, offsetRect, null)
+                    rock.shakeAmount -= 2f
+                } else {
+                    canvas.drawBitmap(boxBitmap, null, rock.rect, null)
+                }
+            }
+        }
+
+        playersPose.forEach { (id, data) ->
+            val (_, pXOffset) = data
+            val tx = { x: Float -> 
+                var sx = (x + pXOffset) * scale + canvasOffsetX
+                if (isFrontCamera) sx = width - sx
+                sx
+            }
+            val ty = { y: Float -> y * scale + canvasOffsetY }
+            val ls = getPos(id, PoseLandmark.LEFT_SHOULDER)
+            val rs = getPos(id, PoseLandmark.RIGHT_SHOULDER)
+            if (ls != null && rs != null) {
+                val sw = Math.hypot((tx(ls.x) - tx(rs.x)).toDouble(), (ty(ls.y) - ty(rs.y)).toDouble()).toFloat()
+                drawBody(canvas, id, tx, ty, sw * 1.55f)
+                drawShoulders(canvas, id, tx, ty, sw)
+                drawHands(canvas, id, tx, ty, sw * 0.48f)
+                drawHead(canvas, id, tx, ty, sw * 0.95f)
+            }
+        }
     }
 
     private fun drawBalapGeol(canvas: Canvas) {
@@ -613,18 +579,7 @@ class OverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             canvas.drawText("P2: $scoreP2", width - 50f, 100f, paint)
         }
 
-        if (currentGameMode == GameMode.FIGHTER) {
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 5f
-            paint.color = Color.WHITE
-            canvas.drawRect(50f, 180f, 350f, 210f, paint)
-            canvas.drawRect(width - 350f, 180f, width - 50f, 210f, paint)
-            
-            paint.style = Paint.Style.FILL
-            paint.color = Color.GREEN
-            canvas.drawRect(50f, 180f, 50f + (hpP1 * 3f), 210f, paint)
-            canvas.drawRect(width - 50f - (hpP2 * 3f), 180f, width - 50f, 210f, paint)
-        }
+
 
         winner?.let { winName ->
             drawWinnerOverlay(canvas, winName)

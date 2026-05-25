@@ -93,8 +93,8 @@ abstract class BasePoseActivity : AppCompatActivity() {
             .build()
         
         // Load sounds from res/raw safely to avoid build errors if they don't exist yet
-        val actionId = resources.getIdentifier("box_crack", "raw", packageName)
-        if (actionId != 0) soundIdAction = soundPool.load(this, actionId, 1)
+        // val actionId = resources.getIdentifier("box_crack", "raw", packageName)
+        // if (actionId != 0) soundIdAction = soundPool.load(this, actionId, 1)
 
         val victoryId = resources.getIdentifier("win_sfx", "raw", packageName)
         if (victoryId != 0) soundIdVictory = soundPool.load(this, victoryId, 1)

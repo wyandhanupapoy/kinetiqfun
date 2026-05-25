@@ -230,7 +230,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         
         // Push state immediately so rocks are pre-drawn during the countdown/tutorial
         runOnUiThread {
-            binding.overlayView.updateKesatriaState(rocks, p1DestroyedCount, p2DestroyedCount, nameP1, nameP2, winner)
+            binding.overlayView.updateGameState(rocks.toList(), p1DestroyedCount, p2DestroyedCount, nameP1, nameP2, winner)
         }
     }
 
@@ -301,7 +301,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
         enhanceVisualFeedback(hitL.first || hitR.first, hitL.second || hitR.second, playerId)
 
         runOnUiThread {
-            overlay.updateKesatriaState(rocks, p1DestroyedCount, p2DestroyedCount, nameP1, nameP2, winner)
+            overlay.updateGameState(rocks.toList(), p1DestroyedCount, p2DestroyedCount, nameP1, nameP2, winner)
         }
     }
 

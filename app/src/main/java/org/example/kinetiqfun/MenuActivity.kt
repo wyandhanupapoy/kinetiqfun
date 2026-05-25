@@ -51,7 +51,7 @@ class MenuActivity : AppCompatActivity() {
         val games = listOf(
             GameItem(1, "Kesatria PCD", null),
             GameItem(2, "Geol Kicau Mania", null),
-            GameItem(3, "Pose Fighter", null)
+            GameItem(3, "Tiru Gaya", null)
         )
 
         val adapter = GameAdapter(games) { game, position ->
@@ -68,11 +68,11 @@ class MenuActivity : AppCompatActivity() {
                 // Using a small threshold because PagerSnapHelper might not be perfectly at 0 distance
                 if (distance < itemView.width / 4) {
                     SoundManager.playClick()
-                    val intent = when (game.id) {
+                    val intent = when(game.id) {
                         1 -> Intent(this, KesatriaPCDActivity::class.java)
                         2 -> Intent(this, GameTwoActivity::class.java)
-                        3 -> Intent(this, GameThreeActivity::class.java)
-                        else -> null
+                        3 -> Intent(this, GameFourActivity::class.java)
+                        else -> Intent(this, KesatriaPCDActivity::class.java)
                     }
                     intent?.let {
                         RainbowTransition.navigate(this, it, finishCurrent = false)

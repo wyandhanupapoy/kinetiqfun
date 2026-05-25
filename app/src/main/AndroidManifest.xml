@@ -57,7 +57,7 @@
             android:configChanges="orientation|screenSize|screenLayout">
         </activity>
         <activity
-            android:name=".GameThreeActivity"
+            android:name=".GameFourActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|screenLayout">
