@@ -184,8 +184,15 @@ class KesatriaPCDActivity : BasePoseActivity() {
     private fun startWaitingForPlayers() {
         isWaitingForPlayers = true
         binding.waitingLayout.visibility = View.VISIBLE
-        binding.waitingTitleText.text = getString(R.string.waiting)
-        binding.waitingSubtitleText.text = getString(R.string.waiting_instruction)
+        
+        // Use different text if game already started once (detection lost)
+        if (isGameStarted) {
+            binding.waitingTitleText.text = getString(R.string.waiting)
+            binding.waitingSubtitleText.text = getString(R.string.waiting_instruction_lost)
+        } else {
+            binding.waitingTitleText.text = getString(R.string.waiting)
+            binding.waitingSubtitleText.text = getString(R.string.waiting_instruction)
+        }
         
         val handler = Handler(Looper.getMainLooper())
         val checkRunnable = object : Runnable {
@@ -200,7 +207,9 @@ class KesatriaPCDActivity : BasePoseActivity() {
                     if (isDeviceStable) {
                         isWaitingForPlayers = false
                         binding.waitingLayout.visibility = View.GONE
-                        startCountdown()
+                        if (!isGameStarted) {
+                            startCountdown()
+                        }
                     } else {
                         // Change text to nudge user to stabilize device
                         binding.waitingTitleText.text = getString(R.string.calibration_title)
@@ -210,7 +219,7 @@ class KesatriaPCDActivity : BasePoseActivity() {
                 } else {
                     // Reset text if players not detected
                     binding.waitingTitleText.text = getString(R.string.waiting)
-                    binding.waitingSubtitleText.text = getString(R.string.waiting_instruction)
+                    binding.waitingSubtitleText.text = if (isGameStarted) getString(R.string.waiting_instruction_lost) else getString(R.string.waiting_instruction)
                     handler.postDelayed(this, 500)
                 }
             }
@@ -319,6 +328,18 @@ class KesatriaPCDActivity : BasePoseActivity() {
         if (playerId == 1) lastP1DetectTime = System.currentTimeMillis()
         if (playerId == 2) lastP2DetectTime = System.currentTimeMillis()
         
+        // Continuous check for both players during gameplay
+        if (isGameStarted && winner == null && !isWaitingForPlayers) {
+            val now = System.currentTimeMillis()
+            val p1Lost = (now - lastP1DetectTime) > 1500
+            val p2Lost = (now - lastP2DetectTime) > 1500
+            
+            if (p1Lost || p2Lost) {
+                runOnUiThread { startWaitingForPlayers() }
+                return
+            }
+        }
+
         if (!isGameStarted || winner != null || isWaitingForPlayers) return
         
         val overlay = binding.overlayView

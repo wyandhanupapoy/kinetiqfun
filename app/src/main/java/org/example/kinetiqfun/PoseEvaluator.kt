@@ -90,7 +90,9 @@ object PoseEvaluator {
             PoseLandmark.LEFT_SHOULDER,
             PoseLandmark.RIGHT_SHOULDER,
             PoseLandmark.LEFT_HIP,
-            PoseLandmark.RIGHT_HIP
+            PoseLandmark.RIGHT_HIP,
+            PoseLandmark.LEFT_KNEE,
+            PoseLandmark.RIGHT_KNEE
         )
 
         for (partType in essentialParts) {
